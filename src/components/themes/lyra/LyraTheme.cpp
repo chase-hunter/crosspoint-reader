@@ -345,23 +345,23 @@ void LyraTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const c
   const int pageHeight = renderer.getScreenHeight();
   constexpr int buttonWidth = 80;
   constexpr int smallButtonHeight = 10;
-  constexpr int buttonHeight = LyraMetrics::values.buttonHintsHeight;
-  constexpr int buttonY = LyraMetrics::values.buttonHintsHeight;  // Distance from bottom
+  constexpr int allocatedHeight = LyraMetrics::values.buttonHintsHeight;  // 40 — reserved area
+  constexpr int drawnHeight = 28;  // Visible button height (smaller to avoid clipping)
+  constexpr int radius = 8;  // Modern rounded rectangle
+  constexpr int topPad = (allocatedHeight - drawnHeight) / 2;  // Center vertically
   constexpr int buttonPositions[] = {58, 146, 254, 342};
   const char* labels[] = {btn1, btn2, btn3, btn4};
 
-  constexpr int pillRadius = buttonHeight / 2;  // Full capsule / pill shape
   for (int i = 0; i < 4; i++) {
     const int x = buttonPositions[i];
     if (labels[i] != nullptr && labels[i][0] != '\0') {
-      const int y = pageHeight - buttonY;
-      // Draw bubbly pill-shaped button
-      renderer.fillRoundedRect(x, y, buttonWidth, buttonHeight, pillRadius, Color::White);
-      renderer.drawRoundedRect(x, y, buttonWidth, buttonHeight, 2, pillRadius, true);
+      const int y = pageHeight - allocatedHeight + topPad;
+      renderer.fillRoundedRect(x, y, buttonWidth, drawnHeight, radius, Color::White);
+      renderer.drawRoundedRect(x, y, buttonWidth, drawnHeight, 2, radius, true);
       const int textWidth = renderer.getTextWidth(SMALL_FONT_ID, labels[i]);
-      const int textHeight = renderer.getTextHeight(SMALL_FONT_ID);
+      const int lineHeight = renderer.getLineHeight(SMALL_FONT_ID);
       const int textX = x + (buttonWidth - textWidth) / 2;
-      const int textY = y + (buttonHeight - textHeight) / 2;
+      const int textY = y + (drawnHeight - lineHeight) / 2;
       renderer.drawText(SMALL_FONT_ID, textX, textY, labels[i]);
     } else {
       // Draw small rounded placeholder tab
