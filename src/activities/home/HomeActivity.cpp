@@ -9,6 +9,7 @@
 #include <Xtc.h>
 
 #include <cstring>
+#include <ctime>
 #include <vector>
 
 #include "Battery.h"
@@ -22,6 +23,43 @@
 
 namespace {
 constexpr const char* HOME_HEADER_BRANDING = "github.com/chase-hunter";
+
+bool formatHomeClock(char* out, size_t outSize, int& minuteOfDay) {
+  if (outSize < 9) {
+    return false;
+  }
+
+  const std::time_t now = std::time(nullptr);
+  if (now <= 0) {
+    return false;
+  }
+
+  std::tm localTm {};
+#ifdef _WIN32
+  if (localtime_s(&localTm, &now) != 0) {
+    return false;
+  }
+#else
+  if (localtime_r(&now, &localTm) == nullptr) {
+    return false;
+  }
+#endif
+
+  // Consider unsynced RTC/time invalid and show placeholder
+  if (localTm.tm_year < (2020 - 1900)) {
+    return false;
+  }
+
+  int hour12 = localTm.tm_hour % 12;
+  if (hour12 == 0) {
+    hour12 = 12;
+  }
+  const char* period = localTm.tm_hour >= 12 ? "PM" : "AM";
+
+  std::snprintf(out, outSize, "%d:%02d %s", hour12, localTm.tm_min, period);
+  minuteOfDay = localTm.tm_hour * 60 + localTm.tm_min;
+  return true;
+}
 }
 
 int HomeActivity::getMenuItemCount() const {
@@ -214,6 +252,17 @@ void HomeActivity::loop() {
       onSettingsOpen();
     }
   }
+
+  const unsigned long nowMs = millis();
+  if (nowMs - lastClockPollMs >= 1000) {
+    lastClockPollMs = nowMs;
+
+    char clockBuffer[10] = "--:--";
+    int minuteOfDay = -1;
+    if (formatHomeClock(clockBuffer, sizeof(clockBuffer), minuteOfDay) && minuteOfDay != lastRenderedClockMinute) {
+      requestUpdate();
+    }
+  }
 }
 
 void HomeActivity::render(Activity::RenderLock&&) {
@@ -237,8 +286,20 @@ void HomeActivity::render(Activity::RenderLock&&) {
   const int brandingY = headerY + 8;
   const int homeY = brandingY + subtitleLineHeight + 6;
 
+  char clockBuffer[10] = "--:--";
+  int minuteOfDay = -1;
+  if (!formatHomeClock(clockBuffer, sizeof(clockBuffer), minuteOfDay)) {
+    std::strncpy(clockBuffer, "--:--", sizeof(clockBuffer));
+    minuteOfDay = -1;
+  }
+  lastRenderedClockMinute = minuteOfDay;
+
   renderer.drawCenteredText(SMALL_FONT_ID, brandingY, centeredBranding.c_str());
   renderer.drawCenteredText(UI_12_FONT_ID, homeY, "Home", true, EpdFontFamily::BOLD);
+
+  const int timeX = metrics.contentSidePadding;
+  const int timeY = headerY + 2;
+  renderer.drawText(SMALL_FONT_ID, timeX, timeY, clockBuffer);
 
   const int sectionX = metrics.contentSidePadding / 2;
   const int sectionWidth = pageWidth - metrics.contentSidePadding;
