@@ -30,34 +30,40 @@ bool formatHomeClock(char* out, size_t outSize, int& minuteOfDay) {
   }
 
   const std::time_t now = std::time(nullptr);
-  if (now <= 0) {
-    return false;
-  }
-
-  std::tm localTm {};
+  if (now > 0) {
+    std::tm localTm {};
 #ifdef _WIN32
-  if (localtime_s(&localTm, &now) != 0) {
-    return false;
-  }
+    if (localtime_s(&localTm, &now) == 0) {
 #else
-  if (localtime_r(&now, &localTm) == nullptr) {
-    return false;
-  }
+    if (localtime_r(&now, &localTm) != nullptr) {
 #endif
+      // Consider unsynced RTC/time invalid and fallback to uptime clock
+      if (localTm.tm_year >= (2020 - 1900)) {
+        int hour12 = localTm.tm_hour % 12;
+        if (hour12 == 0) {
+          hour12 = 12;
+        }
+        const char* period = localTm.tm_hour >= 12 ? "PM" : "AM";
 
-  // Consider unsynced RTC/time invalid and show placeholder
-  if (localTm.tm_year < (2020 - 1900)) {
-    return false;
+        std::snprintf(out, outSize, "%d:%02d %s", hour12, localTm.tm_min, period);
+        minuteOfDay = localTm.tm_hour * 60 + localTm.tm_min;
+        return true;
+      }
+    }
   }
 
-  int hour12 = localTm.tm_hour % 12;
+  // Fallback: show uptime clock so header always has a usable time-like value.
+  const int totalMinutes = static_cast<int>((millis() / 60000UL) % (24UL * 60UL));
+  const int hour24 = totalMinutes / 60;
+  const int minute = totalMinutes % 60;
+  int hour12 = hour24 % 12;
   if (hour12 == 0) {
     hour12 = 12;
   }
-  const char* period = localTm.tm_hour >= 12 ? "PM" : "AM";
+  const char* period = hour24 >= 12 ? "PM" : "AM";
 
-  std::snprintf(out, outSize, "%d:%02d %s", hour12, localTm.tm_min, period);
-  minuteOfDay = localTm.tm_hour * 60 + localTm.tm_min;
+  std::snprintf(out, outSize, "%d:%02d %s", hour12, minute, period);
+  minuteOfDay = totalMinutes;
   return true;
 }
 }
@@ -253,16 +259,6 @@ void HomeActivity::loop() {
     }
   }
 
-  const unsigned long nowMs = millis();
-  if (nowMs - lastClockPollMs >= 1000) {
-    lastClockPollMs = nowMs;
-
-    char clockBuffer[10] = "--:--";
-    int minuteOfDay = -1;
-    if (formatHomeClock(clockBuffer, sizeof(clockBuffer), minuteOfDay) && minuteOfDay != lastRenderedClockMinute) {
-      requestUpdate();
-    }
-  }
 }
 
 void HomeActivity::render(Activity::RenderLock&&) {
@@ -290,9 +286,7 @@ void HomeActivity::render(Activity::RenderLock&&) {
   int minuteOfDay = -1;
   if (!formatHomeClock(clockBuffer, sizeof(clockBuffer), minuteOfDay)) {
     std::strncpy(clockBuffer, "--:--", sizeof(clockBuffer));
-    minuteOfDay = -1;
   }
-  lastRenderedClockMinute = minuteOfDay;
 
   renderer.drawCenteredText(SMALL_FONT_ID, brandingY, centeredBranding.c_str());
   renderer.drawCenteredText(UI_12_FONT_ID, homeY, "Home", true, EpdFontFamily::BOLD);
