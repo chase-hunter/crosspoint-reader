@@ -9,6 +9,7 @@
 #include <Xtc.h>
 
 #include <cstring>
+#include <ctime>
 #include <vector>
 
 #include "Battery.h"
@@ -238,6 +239,18 @@ void HomeActivity::render(Activity::RenderLock&&) {
   const int homeY = brandingY + subtitleLineHeight + 6;
 
   renderer.drawCenteredText(SMALL_FONT_ID, brandingY, centeredBranding.c_str());
+
+  // Draw current time to the left of the branding text if time has been synced
+  {
+    time_t now = time(nullptr);
+    struct tm timeInfo;
+    if (localtime_r(&now, &timeInfo) && timeInfo.tm_year >= (2024 - 1900)) {
+      char timeStr[6];
+      strftime(timeStr, sizeof(timeStr), "%H:%M", &timeInfo);
+      renderer.drawText(SMALL_FONT_ID, metrics.contentSidePadding, brandingY, timeStr);
+    }
+  }
+
   renderer.drawCenteredText(UI_12_FONT_ID, homeY, "Home", true, EpdFontFamily::BOLD);
 
   const int sectionX = metrics.contentSidePadding / 2;
