@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "Battery.h"
-#include "CrossPointBranding.h"
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "MappedInputManager.h"
@@ -221,9 +220,11 @@ void HomeActivity::render(Activity::RenderLock&&) {
   renderer.clearScreen();
   bool bufferRestored = coverBufferStored && restoreCoverBuffer();
 
-  const int headerY = metrics.topPadding;
-  const int headerHeight = metrics.headerHeight;
-  const int contentTop = headerY + headerHeight + metrics.verticalSpacing;
+  GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.homeTopPadding}, nullptr);
+
+  GUI.drawRecentBookCover(renderer, Rect{0, metrics.homeTopPadding, pageWidth, metrics.homeCoverTileHeight},
+                          recentBooks, selectorIndex, coverRendered, coverBufferStored, bufferRestored,
+                          std::bind(&HomeActivity::storeCoverBuffer, this));
 
   // Build menu items dynamically
   std::vector<const char*> menuItems = {tr(STR_BROWSE_FILES), tr(STR_MENU_RECENT_BOOKS), tr(STR_FILE_TRANSFER),
@@ -236,54 +237,11 @@ void HomeActivity::render(Activity::RenderLock&&) {
     menuIcons.insert(menuIcons.begin() + 2, Library);
   }
 
-  std::string selectedContext;
-  if (!recentBooks.empty() && selectorIndex < static_cast<int>(recentBooks.size())) {
-    selectedContext = recentBooks[selectorIndex].title;
-  } else {
-    const int menuIndex = selectorIndex - static_cast<int>(recentBooks.size());
-    if (menuIndex >= 0 && menuIndex < static_cast<int>(menuItems.size())) {
-      selectedContext = menuItems[menuIndex];
-    }
-  }
-
-  GUI.drawHeader(renderer, Rect{0, headerY, pageWidth, headerHeight}, tr(STR_HOME), nullptr);
-
-  const int subtitleLineHeight = renderer.getLineHeight(SMALL_FONT_ID);
-  const auto centeredBranding =
-      renderer.truncatedText(SMALL_FONT_ID, CROSSPOINT_BRANDING, pageWidth - metrics.contentSidePadding * 2);
-  int brandingY = headerY + headerHeight - subtitleLineHeight - 2;
-  if (!selectedContext.empty() && headerHeight >= subtitleLineHeight * 2 + 8) {
-    brandingY = headerY + headerHeight - subtitleLineHeight * 2 - 3;
-  }
-  renderer.drawCenteredText(SMALL_FONT_ID, brandingY, centeredBranding.c_str());
-
-  if (!selectedContext.empty() && headerHeight >= subtitleLineHeight * 2 + 8) {
-    auto centeredContext =
-        renderer.truncatedText(SMALL_FONT_ID, selectedContext.c_str(), pageWidth - metrics.contentSidePadding * 2);
-    renderer.drawCenteredText(SMALL_FONT_ID, brandingY + subtitleLineHeight, centeredContext.c_str());
-  }
-
-  renderer.drawLine(metrics.contentSidePadding, contentTop - (metrics.verticalSpacing / 2),
-                    pageWidth - metrics.contentSidePadding, contentTop - (metrics.verticalSpacing / 2));
-
-  const int sectionX = metrics.contentSidePadding / 2;
-  const int sectionWidth = pageWidth - metrics.contentSidePadding;
-
-  renderer.drawRect(sectionX, contentTop, sectionWidth, metrics.homeCoverTileHeight);
-  GUI.drawRecentBookCover(renderer, Rect{0, contentTop, pageWidth, metrics.homeCoverTileHeight}, recentBooks,
-                          selectorIndex, coverRendered, coverBufferStored, bufferRestored,
-                          std::bind(&HomeActivity::storeCoverBuffer, this));
-
-  const int menuY = contentTop + metrics.homeCoverTileHeight + metrics.verticalSpacing;
-  int menuHeight = pageHeight - (menuY + metrics.verticalSpacing + metrics.buttonHintsHeight);
-  if (menuHeight < metrics.menuRowHeight) {
-    menuHeight = metrics.menuRowHeight;
-  }
-
-  renderer.drawRect(sectionX, menuY - (metrics.verticalSpacing / 2), sectionWidth, menuHeight + metrics.verticalSpacing);
-
   GUI.drawButtonMenu(
-      renderer, Rect{0, menuY, pageWidth, menuHeight},
+      renderer,
+      Rect{0, metrics.homeTopPadding + metrics.homeCoverTileHeight + metrics.verticalSpacing, pageWidth,
+           pageHeight - (metrics.headerHeight + metrics.homeTopPadding + metrics.verticalSpacing * 2 +
+                         metrics.buttonHintsHeight)},
       static_cast<int>(menuItems.size()), selectorIndex - recentBooks.size(),
       [&menuItems](int index) { return std::string(menuItems[index]); },
       [&menuIcons](int index) { return menuIcons[index]; });

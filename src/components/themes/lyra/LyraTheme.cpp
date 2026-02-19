@@ -249,10 +249,6 @@ void LyraTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, 
                          const std::function<std::string(int index)>& rowSubtitle,
                          const std::function<UIIcon(int index)>& rowIcon,
                          const std::function<std::string(int index)>& rowValue, bool highlightValue) const {
-  if (itemCount <= 0) {
-    return;
-  }
-
   int rowHeight =
       (rowSubtitle != nullptr) ? LyraMetrics::values.listWithSubtitleRowHeight : LyraMetrics::values.listRowHeight;
   int pageItems = rect.height / rowHeight;
@@ -275,16 +271,10 @@ void LyraTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, 
   int contentWidth =
       rect.width -
       (totalPages > 1 ? (LyraMetrics::values.scrollBarWidth + LyraMetrics::values.scrollBarRightOffset) : 1);
-  const int listX = rect.x + LyraMetrics::values.contentSidePadding;
-  const int listWidth = contentWidth - LyraMetrics::values.contentSidePadding * 2;
-  const int rowCardInset = 2;
-
-  renderer.drawRect(listX - 2, rect.y, listWidth + 4, rect.height);
-
   if (selectedIndex >= 0) {
-    const int selectedY = rect.y + selectedIndex % pageItems * rowHeight + rowCardInset;
-    renderer.fillRoundedRect(listX + rowCardInset, selectedY, listWidth - rowCardInset * 2,
-                             rowHeight - rowCardInset * 2, cornerRadius, Color::LightGray);
+    renderer.fillRoundedRect(LyraMetrics::values.contentSidePadding, rect.y + selectedIndex % pageItems * rowHeight,
+                             contentWidth - LyraMetrics::values.contentSidePadding * 2, rowHeight, cornerRadius,
+                             Color::LightGray);
   }
 
   int textX = rect.x + LyraMetrics::values.contentSidePadding + hPaddingInSelection;
@@ -301,13 +291,7 @@ void LyraTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, 
   int iconY = (rowSubtitle != nullptr) ? 16 : 10;
   for (int i = pageStartIndex; i < itemCount && i < pageStartIndex + pageItems; i++) {
     const int itemY = rect.y + (i % pageItems) * rowHeight;
-    const bool selected = i == selectedIndex;
     int rowTextWidth = textWidth;
-
-    if (!selected) {
-      renderer.drawRect(listX + rowCardInset, itemY + rowCardInset, listWidth - rowCardInset * 2,
-                        rowHeight - rowCardInset * 2);
-    }
 
     // Draw name
     int valueWidth = 0;
@@ -320,12 +304,8 @@ void LyraTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, 
     }
 
     auto itemName = rowTitle(i);
-    const int titleFont = (rowSubtitle != nullptr) ? UI_12_FONT_ID : UI_10_FONT_ID;
-    const int titleY = (rowSubtitle != nullptr) ? itemY + 8 : itemY + 7;
-    auto item = renderer.truncatedText(titleFont, itemName.c_str(), rowTextWidth,
-                       rowSubtitle != nullptr ? EpdFontFamily::BOLD : EpdFontFamily::REGULAR);
-    renderer.drawText(titleFont, textX, titleY, item.c_str(), true,
-              rowSubtitle != nullptr ? EpdFontFamily::BOLD : EpdFontFamily::REGULAR);
+    auto item = renderer.truncatedText(UI_10_FONT_ID, itemName.c_str(), rowTextWidth);
+    renderer.drawText(UI_10_FONT_ID, textX, itemY + 7, item.c_str(), true);
 
     if (rowIcon != nullptr) {
       UIIcon icon = rowIcon(i);
@@ -340,18 +320,19 @@ void LyraTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, 
       // Draw subtitle
       std::string subtitleText = rowSubtitle(i);
       auto subtitle = renderer.truncatedText(SMALL_FONT_ID, subtitleText.c_str(), rowTextWidth);
-      renderer.drawText(SMALL_FONT_ID, textX, itemY + 33, subtitle.c_str(), true);
+      renderer.drawText(SMALL_FONT_ID, textX, itemY + 30, subtitle.c_str(), true);
     }
 
     // Draw value
     if (!valueText.empty()) {
-      const int valueX = rect.x + contentWidth - LyraMetrics::values.contentSidePadding - valueWidth;
-      if (selected && highlightValue) {
-        renderer.fillRoundedRect(valueX - hPaddingInSelection / 2, itemY + 6, valueWidth + hPaddingInSelection,
-                                 rowHeight - 12, cornerRadius, Color::Black);
+      if (i == selectedIndex && highlightValue) {
+        renderer.fillRoundedRect(
+            contentWidth - LyraMetrics::values.contentSidePadding - hPaddingInSelection - valueWidth, itemY,
+            valueWidth + hPaddingInSelection, rowHeight, cornerRadius, Color::Black);
       }
 
-      renderer.drawText(UI_10_FONT_ID, valueX, itemY + 8, valueText.c_str(), !(selected && highlightValue));
+      renderer.drawText(UI_10_FONT_ID, rect.x + contentWidth - LyraMetrics::values.contentSidePadding - valueWidth,
+                        itemY + 6, valueText.c_str(), !(i == selectedIndex && highlightValue));
     }
   }
 }
@@ -373,14 +354,13 @@ void LyraTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const c
   for (int i = 0; i < 4; i++) {
     const int x = buttonPositions[i];
     if (labels[i] != nullptr && labels[i][0] != '\0') {
-      const bool primaryAction = (i == 1);
       // Draw the filled background and border for a FULL-sized button
-      renderer.fillRect(x, pageHeight - buttonY, buttonWidth, buttonHeight, primaryAction);
+      renderer.fillRect(x, pageHeight - buttonY, buttonWidth, buttonHeight, false);
       renderer.drawRoundedRect(x, pageHeight - buttonY, buttonWidth, buttonHeight, 1, cornerRadius, true, true, false,
                                false, true);
       const int textWidth = renderer.getTextWidth(SMALL_FONT_ID, labels[i]);
       const int textX = x + (buttonWidth - 1 - textWidth) / 2;
-      renderer.drawText(SMALL_FONT_ID, textX, pageHeight - buttonY + textYOffset, labels[i], !primaryAction);
+      renderer.drawText(SMALL_FONT_ID, textX, pageHeight - buttonY + textYOffset, labels[i]);
     } else {
       // Draw the filled background and border for a SMALL-sized button
       renderer.fillRect(x, pageHeight - smallButtonHeight, buttonWidth, smallButtonHeight, false);
