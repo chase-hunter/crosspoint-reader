@@ -113,6 +113,7 @@ void BaseTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const c
   constexpr int smallButtonHeight = 12;
   constexpr int buttonHeight = BaseMetrics::values.buttonHintsHeight;
   constexpr int buttonY = BaseMetrics::values.buttonHintsHeight;  // Distance from bottom
+  constexpr int radius = 8;
   constexpr int buttonPositions[] = {25, 130, 245, 350};
   const char* labels[] = {btn1, btn2, btn3, btn4};
 
@@ -121,16 +122,16 @@ void BaseTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const c
     if (labels[i] != nullptr && labels[i][0] != '\0') {
       const int y = pageHeight - buttonY;
       renderer.fillRect(x, y, buttonWidth, buttonHeight, false);
-      renderer.drawRect(x, y, buttonWidth, buttonHeight);
+      renderer.drawRoundedRect(x, y, buttonWidth, buttonHeight, 1, radius, true);
       const int textWidth = renderer.getTextWidth(UI_10_FONT_ID, labels[i]);
       const int textHeight = renderer.getTextHeight(UI_10_FONT_ID);
       const int textX = x + (buttonWidth - textWidth) / 2;
-      const int textY = y + (buttonHeight + textHeight) / 2;
+      const int textY = y + (buttonHeight - textHeight) / 2;
       renderer.drawText(UI_10_FONT_ID, textX, textY, labels[i]);
     } else {
       const int y = pageHeight - smallButtonHeight;
       renderer.fillRect(x, y, buttonWidth, smallButtonHeight, false);
-      renderer.drawRect(x, y, buttonWidth, smallButtonHeight);
+      renderer.drawRoundedRect(x, y, buttonWidth, smallButtonHeight, 1, radius, true);
     }
   }
 

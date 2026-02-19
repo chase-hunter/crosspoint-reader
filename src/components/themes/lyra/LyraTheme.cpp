@@ -354,19 +354,18 @@ void LyraTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const c
     const int x = buttonPositions[i];
     if (labels[i] != nullptr && labels[i][0] != '\0') {
       const int y = pageHeight - buttonY;
-      // Draw the filled background and border for a FULL-sized button
+      // Draw fully rounded pill-shaped button
       renderer.fillRect(x, y, buttonWidth, buttonHeight, false);
-      renderer.drawRoundedRect(x, y, buttonWidth, buttonHeight, 1, cornerRadius, true, true, false, false, true);
+      renderer.drawRoundedRect(x, y, buttonWidth, buttonHeight, 1, cornerRadius, true);
       const int textWidth = renderer.getTextWidth(SMALL_FONT_ID, labels[i]);
       const int textHeight = renderer.getTextHeight(SMALL_FONT_ID);
       const int textX = x + (buttonWidth - textWidth) / 2;
-      const int textY = y + (buttonHeight + textHeight) / 2;
+      const int textY = y + (buttonHeight - textHeight) / 2;
       renderer.drawText(SMALL_FONT_ID, textX, textY, labels[i]);
     } else {
-      // Draw the filled background and border for a SMALL-sized button
+      // Draw small rounded placeholder tab
       renderer.fillRect(x, pageHeight - smallButtonHeight, buttonWidth, smallButtonHeight, false);
-      renderer.drawRoundedRect(x, pageHeight - smallButtonHeight, buttonWidth, smallButtonHeight, 1, cornerRadius, true,
-                               true, false, false, true);
+      renderer.drawRoundedRect(x, pageHeight - smallButtonHeight, buttonWidth, smallButtonHeight, 1, cornerRadius, true);
     }
   }
 
