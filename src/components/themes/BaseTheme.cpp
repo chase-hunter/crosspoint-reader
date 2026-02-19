@@ -110,21 +110,28 @@ void BaseTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const c
 
   const int pageHeight = renderer.getScreenHeight();
   constexpr int buttonWidth = 106;
+  constexpr int smallButtonHeight = 12;
   constexpr int buttonHeight = BaseMetrics::values.buttonHintsHeight;
   constexpr int buttonY = BaseMetrics::values.buttonHintsHeight;  // Distance from bottom
-  constexpr int textYOffset = 7;                                  // Distance from top of button to text baseline
+  constexpr int pillRadius = buttonHeight / 2;  // Full capsule / pill shape
   constexpr int buttonPositions[] = {25, 130, 245, 350};
   const char* labels[] = {btn1, btn2, btn3, btn4};
 
   for (int i = 0; i < 4; i++) {
-    // Only draw if the label is non-empty
+    const int x = buttonPositions[i];
     if (labels[i] != nullptr && labels[i][0] != '\0') {
-      const int x = buttonPositions[i];
-      renderer.fillRect(x, pageHeight - buttonY, buttonWidth, buttonHeight, false);
-      renderer.drawRect(x, pageHeight - buttonY, buttonWidth, buttonHeight);
+      const int y = pageHeight - buttonY;
+      renderer.fillRoundedRect(x, y, buttonWidth, buttonHeight, pillRadius, Color::White);
+      renderer.drawRoundedRect(x, y, buttonWidth, buttonHeight, 2, pillRadius, true);
       const int textWidth = renderer.getTextWidth(UI_10_FONT_ID, labels[i]);
-      const int textX = x + (buttonWidth - 1 - textWidth) / 2;
-      renderer.drawText(UI_10_FONT_ID, textX, pageHeight - buttonY + textYOffset, labels[i]);
+      const int textHeight = renderer.getTextHeight(UI_10_FONT_ID);
+      const int textX = x + (buttonWidth - textWidth) / 2;
+      const int textY = y + (buttonHeight - textHeight) / 2;
+      renderer.drawText(UI_10_FONT_ID, textX, textY, labels[i]);
+    } else {
+      const int y = pageHeight - smallButtonHeight;
+      renderer.fillRoundedRect(x, y, buttonWidth, smallButtonHeight, smallButtonHeight / 2, Color::White);
+      renderer.drawRoundedRect(x, y, buttonWidth, smallButtonHeight, 1, smallButtonHeight / 2, true);
     }
   }
 
@@ -636,18 +643,20 @@ void BaseTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std:
 void BaseTheme::drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount, int selectedIndex,
                                const std::function<std::string(int index)>& buttonLabel,
                                const std::function<UIIcon(int index)>& rowIcon) const {
+  constexpr int menuRadius = BaseMetrics::values.menuRowHeight / 2;  // Bubble / pill shape
   for (int i = 0; i < buttonCount; ++i) {
     const int tileY = BaseMetrics::values.verticalSpacing + rect.y +
                       static_cast<int>(i) * (BaseMetrics::values.menuRowHeight + BaseMetrics::values.menuSpacing);
+    const int tileX = rect.x + BaseMetrics::values.contentSidePadding;
+    const int tileW = rect.width - BaseMetrics::values.contentSidePadding * 2;
+    const int tileH = BaseMetrics::values.menuRowHeight;
 
     const bool selected = selectedIndex == i;
 
     if (selected) {
-      renderer.fillRect(rect.x + BaseMetrics::values.contentSidePadding, tileY,
-                        rect.width - BaseMetrics::values.contentSidePadding * 2, BaseMetrics::values.menuRowHeight);
+      renderer.fillRoundedRect(tileX, tileY, tileW, tileH, menuRadius, Color::Black);
     } else {
-      renderer.drawRect(rect.x + BaseMetrics::values.contentSidePadding, tileY,
-                        rect.width - BaseMetrics::values.contentSidePadding * 2, BaseMetrics::values.menuRowHeight);
+      renderer.drawRoundedRect(tileX, tileY, tileW, tileH, 1, menuRadius, true);
     }
 
     std::string labelStr = buttonLabel(i);
@@ -655,10 +664,9 @@ void BaseTheme::drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount
     const int textWidth = renderer.getTextWidth(UI_10_FONT_ID, label);
     const int textX = rect.x + (rect.width - textWidth) / 2;
     const int lineHeight = renderer.getLineHeight(UI_10_FONT_ID);
-    const int textY =
-        tileY + (BaseMetrics::values.menuRowHeight - lineHeight) / 2;  // vertically centered assuming y is top of text
+    const int textY = tileY + (tileH - lineHeight) / 2;
     // Invert text when the tile is selected, to contrast with the filled background
-    renderer.drawText(UI_10_FONT_ID, textX, textY, label, selectedIndex != i);
+    renderer.drawText(UI_10_FONT_ID, textX, textY, label, !selected);
   }
 }
 
