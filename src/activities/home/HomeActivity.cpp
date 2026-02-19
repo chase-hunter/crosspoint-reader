@@ -245,9 +245,21 @@ void HomeActivity::render(Activity::RenderLock&&) {
     time_t now = time(nullptr);
     struct tm timeInfo;
     if (localtime_r(&now, &timeInfo) && timeInfo.tm_year >= (2024 - 1900)) {
-      char timeStr[6];
-      strftime(timeStr, sizeof(timeStr), "%H:%M", &timeInfo);
-      renderer.drawText(SMALL_FONT_ID, metrics.contentSidePadding, brandingY, timeStr);
+      char hourStr[4];
+      char minStr[8];
+      strftime(hourStr, sizeof(hourStr), "%I", &timeInfo);
+      strftime(minStr, sizeof(minStr), "%M %p", &timeInfo);
+      // Remove leading zero from hour
+      const char* hour = (hourStr[0] == '0') ? hourStr + 1 : hourStr;
+
+      // Draw each part with explicit spacing to avoid colon overlap
+      constexpr int colonPad = 2;
+      int x = metrics.contentSidePadding;
+      renderer.drawText(SMALL_FONT_ID, x, brandingY, hour);
+      x += renderer.getTextWidth(SMALL_FONT_ID, hour);
+      renderer.drawText(SMALL_FONT_ID, x, brandingY, ":");
+      x += renderer.getTextWidth(SMALL_FONT_ID, ":") + colonPad;
+      renderer.drawText(SMALL_FONT_ID, x, brandingY, minStr);
     }
   }
 
