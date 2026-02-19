@@ -225,7 +225,10 @@ void HomeActivity::render(Activity::RenderLock&&) {
   const int headerHeight = metrics.headerHeight;
   const int contentTop = headerY + headerHeight + metrics.verticalSpacing;
 
-  GUI.drawHeader(renderer, Rect{0, headerY, pageWidth, headerHeight}, tr(STR_HOME), CROSSPOINT_BRANDING);
+  GUI.drawHeader(renderer, Rect{0, headerY, pageWidth, headerHeight}, tr(STR_HOME), nullptr);
+  const auto centeredBranding =
+      renderer.truncatedText(SMALL_FONT_ID, CROSSPOINT_BRANDING, pageWidth - metrics.contentSidePadding * 2);
+  renderer.drawCenteredText(SMALL_FONT_ID, headerY + headerHeight - 24, centeredBranding.c_str());
   renderer.drawLine(metrics.contentSidePadding, contentTop - (metrics.verticalSpacing / 2),
                     pageWidth - metrics.contentSidePadding, contentTop - (metrics.verticalSpacing / 2));
 
