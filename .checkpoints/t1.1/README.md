@@ -4,6 +4,11 @@ Created: 2026-02-19
 
 This checkpoint captures the requested baseline state (`t1.1`) for quick manual restore in a non-git workspace.
 
+Includes boot screen refresh:
+- Stylized CH monogram logo
+- Title lines: "CrossPoint Reworked" and "github.com/chase-hunter"
+- "BOOTING" line preserved
+
 ## Snapshot files
 
 - `src__activities__home__HomeActivity.cpp`
