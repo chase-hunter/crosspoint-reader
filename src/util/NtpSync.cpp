@@ -3,7 +3,13 @@
 #include <Logging.h>
 #include <esp_sntp.h>
 
+#include <cstdlib>
+
 void syncTimeWithNTP() {
+  // Set timezone to US Eastern (EST/EDT with automatic daylight saving)
+  setenv("TZ", "EST5EDT,M3.2.0,M11.1.0", 1);
+  tzset();
+
   // Stop SNTP if already running (can't reconfigure while running)
   if (esp_sntp_enabled()) {
     esp_sntp_stop();
