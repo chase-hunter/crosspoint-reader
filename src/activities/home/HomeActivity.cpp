@@ -224,18 +224,29 @@ void HomeActivity::render(Activity::RenderLock&&) {
   renderer.clearScreen();
   bool bufferRestored = coverBufferStored && restoreCoverBuffer();
 
-  GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.homeTopPadding}, tr(STR_HOME));
+  const int headerY = metrics.topPadding;
+  const int headerHeight = metrics.headerHeight;
+  const int contentTop = headerY + headerHeight + metrics.verticalSpacing;
 
-  const auto centeredBranding =
-      renderer.truncatedText(SMALL_FONT_ID, HOME_HEADER_BRANDING, pageWidth - metrics.contentSidePadding * 2);
-  int brandingY = metrics.topPadding + metrics.homeTopPadding / 2 - renderer.getLineHeight(SMALL_FONT_ID) - 2;
-  const int minBrandingY = metrics.topPadding + 2;
-  if (brandingY < minBrandingY) {
-    brandingY = minBrandingY;
-  }
+  GUI.drawHeader(renderer, Rect{0, headerY, pageWidth, headerHeight}, nullptr);
+
+  const int titleLineHeight = renderer.getLineHeight(UI_12_FONT_ID);
+  const int subtitleLineHeight = renderer.getLineHeight(SMALL_FONT_ID);
+  const int brandingMaxWidth = pageWidth - metrics.contentSidePadding * 2 - 90;
+  const auto centeredBranding = renderer.truncatedText(SMALL_FONT_ID, HOME_HEADER_BRANDING, brandingMaxWidth);
+  const int brandingY = headerY + 8;
+  const int homeY = brandingY + subtitleLineHeight + 6;
+
   renderer.drawCenteredText(SMALL_FONT_ID, brandingY, centeredBranding.c_str());
+  renderer.drawCenteredText(UI_12_FONT_ID, homeY, "Home", true, EpdFontFamily::BOLD);
 
-  GUI.drawRecentBookCover(renderer, Rect{0, metrics.homeTopPadding, pageWidth, metrics.homeCoverTileHeight},
+  const int sectionX = metrics.contentSidePadding / 2;
+  const int sectionWidth = pageWidth - metrics.contentSidePadding;
+
+  renderer.drawRect(sectionX, contentTop - metrics.verticalSpacing / 2, sectionWidth,
+                    metrics.homeCoverTileHeight + metrics.verticalSpacing);
+
+  GUI.drawRecentBookCover(renderer, Rect{0, contentTop, pageWidth, metrics.homeCoverTileHeight},
                           recentBooks, selectorIndex, coverRendered, coverBufferStored, bufferRestored,
                           std::bind(&HomeActivity::storeCoverBuffer, this));
 
@@ -250,11 +261,16 @@ void HomeActivity::render(Activity::RenderLock&&) {
     menuIcons.insert(menuIcons.begin() + 2, Library);
   }
 
+  const int menuY = contentTop + metrics.homeCoverTileHeight + metrics.verticalSpacing;
+  int menuHeight = pageHeight - (menuY + metrics.verticalSpacing + metrics.buttonHintsHeight);
+  if (menuHeight < metrics.menuRowHeight) {
+    menuHeight = metrics.menuRowHeight;
+  }
+
+  renderer.drawRect(sectionX, menuY - metrics.verticalSpacing / 2, sectionWidth, menuHeight + metrics.verticalSpacing);
+
   GUI.drawButtonMenu(
-      renderer,
-      Rect{0, metrics.homeTopPadding + metrics.homeCoverTileHeight + metrics.verticalSpacing, pageWidth,
-           pageHeight - (metrics.headerHeight + metrics.homeTopPadding + metrics.verticalSpacing * 2 +
-                         metrics.buttonHintsHeight)},
+      renderer, Rect{0, menuY, pageWidth, menuHeight},
       static_cast<int>(menuItems.size()), selectorIndex - recentBooks.size(),
       [&menuItems](int index) { return std::string(menuItems[index]); },
       [&menuIcons](int index) { return menuIcons[index]; });
