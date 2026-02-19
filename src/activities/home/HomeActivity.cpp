@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "Battery.h"
+#include "CrossPointBranding.h"
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "MappedInputManager.h"
@@ -220,9 +221,15 @@ void HomeActivity::render(Activity::RenderLock&&) {
   renderer.clearScreen();
   bool bufferRestored = coverBufferStored && restoreCoverBuffer();
 
-  GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.homeTopPadding}, nullptr);
+  const int headerY = metrics.topPadding;
+  const int headerHeight = metrics.headerHeight;
+  const int contentTop = headerY + headerHeight + metrics.verticalSpacing;
 
-  GUI.drawRecentBookCover(renderer, Rect{0, metrics.homeTopPadding, pageWidth, metrics.homeCoverTileHeight},
+  GUI.drawHeader(renderer, Rect{0, headerY, pageWidth, headerHeight}, tr(STR_HOME), CROSSPOINT_BRANDING);
+  renderer.drawLine(metrics.contentSidePadding, contentTop - (metrics.verticalSpacing / 2),
+                    pageWidth - metrics.contentSidePadding, contentTop - (metrics.verticalSpacing / 2));
+
+  GUI.drawRecentBookCover(renderer, Rect{0, contentTop, pageWidth, metrics.homeCoverTileHeight},
                           recentBooks, selectorIndex, coverRendered, coverBufferStored, bufferRestored,
                           std::bind(&HomeActivity::storeCoverBuffer, this));
 
@@ -237,11 +244,17 @@ void HomeActivity::render(Activity::RenderLock&&) {
     menuIcons.insert(menuIcons.begin() + 2, Library);
   }
 
+  const int menuY = contentTop + metrics.homeCoverTileHeight + metrics.verticalSpacing;
+  int menuHeight = pageHeight - (menuY + metrics.verticalSpacing + metrics.buttonHintsHeight);
+  if (menuHeight < metrics.menuRowHeight) {
+    menuHeight = metrics.menuRowHeight;
+  }
+
+  renderer.drawRect(metrics.contentSidePadding / 2, menuY - (metrics.verticalSpacing / 2),
+                    pageWidth - metrics.contentSidePadding, menuHeight + metrics.verticalSpacing);
+
   GUI.drawButtonMenu(
-      renderer,
-      Rect{0, metrics.homeTopPadding + metrics.homeCoverTileHeight + metrics.verticalSpacing, pageWidth,
-           pageHeight - (metrics.headerHeight + metrics.homeTopPadding + metrics.verticalSpacing * 2 +
-                         metrics.buttonHintsHeight)},
+      renderer, Rect{0, menuY, pageWidth, menuHeight},
       static_cast<int>(menuItems.size()), selectorIndex - recentBooks.size(),
       [&menuItems](int index) { return std::string(menuItems[index]); },
       [&menuIcons](int index) { return menuIcons[index]; });

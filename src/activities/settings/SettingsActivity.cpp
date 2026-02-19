@@ -10,6 +10,7 @@
 #include "KOReaderSettingsActivity.h"
 #include "LanguageSelectActivity.h"
 #include "MappedInputManager.h"
+#include "CrossPointBranding.h"
 #include "OtaUpdateActivity.h"
 #include "SettingsList.h"
 #include "activities/network/WifiSelectionActivity.h"
@@ -219,7 +220,7 @@ void SettingsActivity::render(Activity::RenderLock&&) {
   auto metrics = UITheme::getInstance().getMetrics();
 
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, tr(STR_SETTINGS_TITLE),
-                 CROSSPOINT_VERSION);
+                 CROSSPOINT_BRANDING);
 
   std::vector<TabInfo> tabs;
   tabs.reserve(categoryCount);
