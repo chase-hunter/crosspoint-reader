@@ -16,10 +16,13 @@
 #include "CrossPointState.h"
 #include "MappedInputManager.h"
 #include "RecentBooksStore.h"
-#include "components/icons/book24.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/StringUtils.h"
+
+namespace {
+constexpr const char* HOME_HEADER_BRANDING = "github.com/chase-hunter";
+}
 
 int HomeActivity::getMenuItemCount() const {
   int count = 4;  // My Library, Recents, File transfer, Settings
@@ -221,7 +224,16 @@ void HomeActivity::render(Activity::RenderLock&&) {
   renderer.clearScreen();
   bool bufferRestored = coverBufferStored && restoreCoverBuffer();
 
-  GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.homeTopPadding}, nullptr);
+  GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.homeTopPadding}, tr(STR_HOME));
+
+  const auto centeredBranding =
+      renderer.truncatedText(SMALL_FONT_ID, HOME_HEADER_BRANDING, pageWidth - metrics.contentSidePadding * 2);
+  int brandingY = metrics.topPadding + metrics.homeTopPadding / 2 - renderer.getLineHeight(SMALL_FONT_ID) - 2;
+  const int minBrandingY = metrics.topPadding + 2;
+  if (brandingY < minBrandingY) {
+    brandingY = minBrandingY;
+  }
+  renderer.drawCenteredText(SMALL_FONT_ID, brandingY, centeredBranding.c_str());
 
   GUI.drawRecentBookCover(renderer, Rect{0, metrics.homeTopPadding, pageWidth, metrics.homeCoverTileHeight},
                           recentBooks, selectorIndex, coverRendered, coverBufferStored, bufferRestored,
