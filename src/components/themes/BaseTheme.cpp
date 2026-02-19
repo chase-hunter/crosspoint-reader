@@ -113,7 +113,7 @@ void BaseTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const c
   constexpr int smallButtonHeight = 12;
   constexpr int allocatedHeight = BaseMetrics::values.buttonHintsHeight;  // 40 — reserved area
   constexpr int drawnHeight = 28;  // Visible button height (smaller to avoid clipping)
-  constexpr int pillRadius = drawnHeight / 2;  // Full capsule / pill shape
+  constexpr int radius = 8;  // Modern rounded rectangle
   constexpr int topPad = (allocatedHeight - drawnHeight) / 2;  // Center vertically
   constexpr int buttonPositions[] = {25, 130, 245, 350};
   const char* labels[] = {btn1, btn2, btn3, btn4};
@@ -122,12 +122,12 @@ void BaseTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const c
     const int x = buttonPositions[i];
     if (labels[i] != nullptr && labels[i][0] != '\0') {
       const int y = pageHeight - allocatedHeight + topPad;
-      renderer.fillRoundedRect(x, y, buttonWidth, drawnHeight, pillRadius, Color::White);
-      renderer.drawRoundedRect(x, y, buttonWidth, drawnHeight, 2, pillRadius, true);
+      renderer.fillRoundedRect(x, y, buttonWidth, drawnHeight, radius, Color::White);
+      renderer.drawRoundedRect(x, y, buttonWidth, drawnHeight, 2, radius, true);
       const int textWidth = renderer.getTextWidth(UI_10_FONT_ID, labels[i]);
-      const int textHeight = renderer.getTextHeight(UI_10_FONT_ID);
+      const int lineHeight = renderer.getLineHeight(UI_10_FONT_ID);
       const int textX = x + (buttonWidth - textWidth) / 2;
-      const int textY = y + (drawnHeight - textHeight) / 2;
+      const int textY = y + (drawnHeight - lineHeight) / 2;
       renderer.drawText(UI_10_FONT_ID, textX, textY, labels[i]);
     } else {
       const int y = pageHeight - smallButtonHeight;
