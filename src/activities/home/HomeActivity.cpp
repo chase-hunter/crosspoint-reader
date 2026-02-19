@@ -21,10 +21,6 @@
 #include "fontIds.h"
 #include "util/StringUtils.h"
 
-namespace {
-constexpr const char* HOME_HEADER_BRANDING = "crosspoint v1.0 reworked by chase hunter";
-}
-
 int HomeActivity::getMenuItemCount() const {
   int count = 4;  // My Library, Recents, File transfer, Settings
   if (!recentBooks.empty()) {
@@ -226,18 +222,6 @@ void HomeActivity::render(Activity::RenderLock&&) {
   bool bufferRestored = coverBufferStored && restoreCoverBuffer();
 
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.homeTopPadding}, nullptr);
-
-  const int iconSize = 20;
-  const int titleY = metrics.topPadding + metrics.homeTopPadding - renderer.getLineHeight(UI_12_FONT_ID) - 4;
-  const int iconX = metrics.contentSidePadding;
-  const int iconY = titleY + (renderer.getLineHeight(UI_12_FONT_ID) - iconSize) / 2;
-  const int titleX = iconX + iconSize + 8;
-  const int maxTitleWidth = pageWidth - titleX - 110;
-  const auto titleText =
-      renderer.truncatedText(UI_12_FONT_ID, HOME_HEADER_BRANDING, maxTitleWidth, EpdFontFamily::BOLD);
-
-  renderer.drawIcon(Book24Icon, iconX, iconY, iconSize, iconSize);
-  renderer.drawText(UI_12_FONT_ID, titleX, titleY, titleText.c_str(), true, EpdFontFamily::BOLD);
 
   GUI.drawRecentBookCover(renderer, Rect{0, metrics.homeTopPadding, pageWidth, metrics.homeCoverTileHeight},
                           recentBooks, selectorIndex, coverRendered, coverBufferStored, bufferRestored,
