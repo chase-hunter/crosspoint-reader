@@ -350,13 +350,14 @@ void LyraTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const c
   constexpr int buttonPositions[] = {58, 146, 254, 342};
   const char* labels[] = {btn1, btn2, btn3, btn4};
 
+  constexpr int pillRadius = buttonHeight / 2;  // Full capsule / pill shape
   for (int i = 0; i < 4; i++) {
     const int x = buttonPositions[i];
     if (labels[i] != nullptr && labels[i][0] != '\0') {
       const int y = pageHeight - buttonY;
-      // Draw fully rounded pill-shaped button
-      renderer.fillRect(x, y, buttonWidth, buttonHeight, false);
-      renderer.drawRoundedRect(x, y, buttonWidth, buttonHeight, 1, cornerRadius, true);
+      // Draw bubbly pill-shaped button
+      renderer.fillRoundedRect(x, y, buttonWidth, buttonHeight, pillRadius, Color::White);
+      renderer.drawRoundedRect(x, y, buttonWidth, buttonHeight, 2, pillRadius, true);
       const int textWidth = renderer.getTextWidth(SMALL_FONT_ID, labels[i]);
       const int textHeight = renderer.getTextHeight(SMALL_FONT_ID);
       const int textX = x + (buttonWidth - textWidth) / 2;
@@ -364,8 +365,10 @@ void LyraTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const c
       renderer.drawText(SMALL_FONT_ID, textX, textY, labels[i]);
     } else {
       // Draw small rounded placeholder tab
-      renderer.fillRect(x, pageHeight - smallButtonHeight, buttonWidth, smallButtonHeight, false);
-      renderer.drawRoundedRect(x, pageHeight - smallButtonHeight, buttonWidth, smallButtonHeight, 1, cornerRadius, true);
+      renderer.fillRoundedRect(x, pageHeight - smallButtonHeight, buttonWidth, smallButtonHeight,
+                               smallButtonHeight / 2, Color::White);
+      renderer.drawRoundedRect(x, pageHeight - smallButtonHeight, buttonWidth, smallButtonHeight, 1,
+                               smallButtonHeight / 2, true);
     }
   }
 
@@ -503,6 +506,7 @@ void LyraTheme::drawEmptyRecents(const GfxRenderer& renderer, const Rect rect) c
 void LyraTheme::drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount, int selectedIndex,
                                const std::function<std::string(int index)>& buttonLabel,
                                const std::function<UIIcon(int index)>& rowIcon) const {
+  constexpr int menuRadius = LyraMetrics::values.menuRowHeight / 2;  // Bubble / pill shape
   for (int i = 0; i < buttonCount; ++i) {
     int tileWidth = rect.width - LyraMetrics::values.contentSidePadding * 2;
     Rect tileRect = Rect{rect.x + LyraMetrics::values.contentSidePadding,
@@ -512,7 +516,7 @@ void LyraTheme::drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount
     const bool selected = selectedIndex == i;
 
     if (selected) {
-      renderer.fillRoundedRect(tileRect.x, tileRect.y, tileRect.width, tileRect.height, cornerRadius, Color::LightGray);
+      renderer.fillRoundedRect(tileRect.x, tileRect.y, tileRect.width, tileRect.height, menuRadius, Color::LightGray);
     }
 
     std::string labelStr = buttonLabel(i);
