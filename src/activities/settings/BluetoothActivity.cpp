@@ -84,8 +84,6 @@ void BluetoothActivity::render(RenderLock&&) {
   int y = contentY;
 
   // Status section
-  renderer.setFont(UI_12_FONT_ID);
-
   const char* statusText = "";
   const auto state = ble_.isEnabled() ? ble_.getState() : BlePageTurner::State::Disabled;
 
@@ -109,38 +107,37 @@ void BluetoothActivity::render(RenderLock&&) {
 
   // Draw status label
   std::string statusLine = std::string(tr(STR_BT_STATUS)) + statusText;
-  renderer.drawText(leftMargin, y, statusLine.c_str());
+  renderer.drawText(UI_12_FONT_ID, leftMargin, y, statusLine.c_str());
   y += lineHeight;
 
   // Draw device name if connected or was connected
   if (state == BlePageTurner::State::Connected || !ble_.getDeviceName().empty()) {
     std::string deviceLine = std::string(tr(STR_BT_DEVICE)) + ble_.getDeviceName();
-    renderer.drawText(leftMargin, y, deviceLine.c_str());
+    renderer.drawText(UI_12_FONT_ID, leftMargin, y, deviceLine.c_str());
     y += lineHeight;
   }
 
   y += lineHeight;
 
   // Instructions
-  renderer.setFont(UI_10_FONT_ID);
   if (state == BlePageTurner::State::Disabled) {
-    renderer.drawText(leftMargin, y, tr(STR_BT_PRESS_TO_ENABLE));
+    renderer.drawText(UI_10_FONT_ID, leftMargin, y, tr(STR_BT_PRESS_TO_ENABLE));
     y += lineHeight;
-    renderer.drawText(leftMargin, y, tr(STR_BT_INSTRUCTION));
+    renderer.drawText(UI_10_FONT_ID, leftMargin, y, tr(STR_BT_INSTRUCTION));
   } else if (state == BlePageTurner::State::Idle) {
-    renderer.drawText(leftMargin, y, tr(STR_BT_PRESS_TO_SCAN));
+    renderer.drawText(UI_10_FONT_ID, leftMargin, y, tr(STR_BT_PRESS_TO_SCAN));
     y += lineHeight;
-    renderer.drawText(leftMargin, y, tr(STR_BT_HOLD_TO_DISABLE));
+    renderer.drawText(UI_10_FONT_ID, leftMargin, y, tr(STR_BT_HOLD_TO_DISABLE));
   } else if (state == BlePageTurner::State::Scanning) {
-    renderer.drawText(leftMargin, y, tr(STR_BT_SCAN_IN_PROGRESS));
+    renderer.drawText(UI_10_FONT_ID, leftMargin, y, tr(STR_BT_SCAN_IN_PROGRESS));
     y += lineHeight;
-    renderer.drawText(leftMargin, y, tr(STR_BT_PRESS_TO_STOP));
+    renderer.drawText(UI_10_FONT_ID, leftMargin, y, tr(STR_BT_PRESS_TO_STOP));
   } else if (state == BlePageTurner::State::Connected) {
-    renderer.drawText(leftMargin, y, tr(STR_BT_PRESS_TO_DISCONNECT));
+    renderer.drawText(UI_10_FONT_ID, leftMargin, y, tr(STR_BT_PRESS_TO_DISCONNECT));
     y += lineHeight;
-    renderer.drawText(leftMargin, y, tr(STR_BT_HOLD_TO_DISABLE));
+    renderer.drawText(UI_10_FONT_ID, leftMargin, y, tr(STR_BT_HOLD_TO_DISABLE));
   } else if (state == BlePageTurner::State::Connecting) {
-    renderer.drawText(leftMargin, y, tr(STR_BT_CONNECTING));
+    renderer.drawText(UI_10_FONT_ID, leftMargin, y, tr(STR_BT_CONNECTING));
   }
 
   // Draw button hints
