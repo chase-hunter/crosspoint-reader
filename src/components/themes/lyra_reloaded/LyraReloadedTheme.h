@@ -3,6 +3,7 @@
 #include "components/themes/BaseTheme.h"
 
 class GfxRenderer;
+enum Color : uint8_t;
 
 // =============================================================================
 // Lyra Reloaded — A modern, Apple-inspired UI theme for CrossPoint Reader.
