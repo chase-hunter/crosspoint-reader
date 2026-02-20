@@ -1,5 +1,7 @@
 #include "MappedInputManager.h"
 
+#include <BlePageTurner.h>
+
 #include "CrossPointSettings.h"
 
 namespace {
@@ -54,15 +56,93 @@ bool MappedInputManager::mapButton(const Button button, bool (HalGPIO::*fn)(uint
   return false;
 }
 
-bool MappedInputManager::wasPressed(const Button button) const { return mapButton(button, &HalGPIO::wasPressed); }
+void MappedInputManager::update() {
+  gpio.update();
 
-bool MappedInputManager::wasReleased(const Button button) const { return mapButton(button, &HalGPIO::wasReleased); }
+  // Reset BLE virtual button state
+  blePageForward = false;
+  blePageBack = false;
+  bleConfirm = false;
+  bleBack = false;
+  bleEventThisFrame = false;
+
+  // Poll BLE page turner for events
+  if (blePageTurner && blePageTurner->isConnected()) {
+    blePageTurner->update();
+    auto event = blePageTurner->consumeEvent();
+    if (event != BlePageTurner::Event::None) {
+      bleEventThisFrame = true;
+      switch (event) {
+        case BlePageTurner::Event::PageForward:
+          blePageForward = true;
+          break;
+        case BlePageTurner::Event::PageBack:
+          blePageBack = true;
+          break;
+        case BlePageTurner::Event::Confirm:
+          bleConfirm = true;
+          break;
+        case BlePageTurner::Event::Back:
+          bleBack = true;
+          break;
+        default:
+          break;
+      }
+    }
+  } else if (blePageTurner) {
+    // Still call update to handle connection state transitions
+    blePageTurner->update();
+  }
+}
+
+bool MappedInputManager::wasPressed(const Button button) const {
+  // Check BLE virtual buttons first (they act as press events)
+  switch (button) {
+    case Button::PageForward:
+      if (blePageForward) return true;
+      break;
+    case Button::PageBack:
+      if (blePageBack) return true;
+      break;
+    case Button::Confirm:
+      if (bleConfirm) return true;
+      break;
+    case Button::Back:
+      if (bleBack) return true;
+      break;
+    default:
+      break;
+  }
+  return mapButton(button, &HalGPIO::wasPressed);
+}
+
+bool MappedInputManager::wasReleased(const Button button) const {
+  // BLE events are instantaneous, so they trigger both press and release in the same frame.
+  // This ensures they work regardless of whether the activity checks wasPressed or wasReleased.
+  switch (button) {
+    case Button::PageForward:
+      if (blePageForward) return true;
+      break;
+    case Button::PageBack:
+      if (blePageBack) return true;
+      break;
+    case Button::Confirm:
+      if (bleConfirm) return true;
+      break;
+    case Button::Back:
+      if (bleBack) return true;
+      break;
+    default:
+      break;
+  }
+  return mapButton(button, &HalGPIO::wasReleased);
+}
 
 bool MappedInputManager::isPressed(const Button button) const { return mapButton(button, &HalGPIO::isPressed); }
 
-bool MappedInputManager::wasAnyPressed() const { return gpio.wasAnyPressed(); }
+bool MappedInputManager::wasAnyPressed() const { return gpio.wasAnyPressed() || bleEventThisFrame; }
 
-bool MappedInputManager::wasAnyReleased() const { return gpio.wasAnyReleased(); }
+bool MappedInputManager::wasAnyReleased() const { return gpio.wasAnyReleased() || bleEventThisFrame; }
 
 unsigned long MappedInputManager::getHeldTime() const { return gpio.getHeldTime(); }
 

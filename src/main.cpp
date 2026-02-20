@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <BlePageTurner.h>
 #include <Epub.h>
 #include <FontDecompressor.h>
 #include <GfxRenderer.h>
@@ -38,6 +39,7 @@ HalGPIO gpio;
 MappedInputManager mappedInputManager(gpio);
 GfxRenderer renderer(display);
 FontDecompressor fontDecompressor;
+BlePageTurner blePageTurner;
 Activity* currentActivity;
 
 // Fonts
@@ -202,6 +204,12 @@ void waitForPowerRelease() {
 void enterDeepSleep() {
   APP_STATE.lastSleepFromReader = currentActivity && currentActivity->isReaderActivity();
   APP_STATE.saveToFile();
+
+  // Shut down BLE before sleeping to free resources cleanly
+  if (blePageTurner.isEnabled()) {
+    blePageTurner.end();
+  }
+
   exitActivity();
   enterNewActivity(new SleepActivity(renderer, mappedInputManager));
 
@@ -320,6 +328,14 @@ void setup() {
   UITheme::getInstance().reload();
   ButtonNavigator::setMappedInputManager(mappedInputManager);
 
+  // Initialise Bluetooth page turner if enabled in settings
+  mappedInputManager.setBlePageTurner(&blePageTurner);
+  if (SETTINGS.bluetoothEnabled) {
+    blePageTurner.begin();
+    // Auto-reconnect: start a brief scan on boot to find a bonded device
+    blePageTurner.startScan(5);
+  }
+
   switch (gpio.getWakeupReason()) {
     case HalGPIO::WakeupReason::PowerButton:
       // For normal wakeups, verify power button press duration
@@ -372,7 +388,8 @@ void loop() {
   const unsigned long loopStartTime = millis();
   static unsigned long lastMemPrint = 0;
 
-  gpio.update();
+  // Update both physical GPIO and BLE page turner input
+  mappedInputManager.update();
 
   renderer.setFadingFix(SETTINGS.fadingFix);
 
@@ -400,7 +417,8 @@ void loop() {
 
   // Check for any user activity (button press or release) or active background work
   static unsigned long lastActivityTime = millis();
-  if (gpio.wasAnyPressed() || gpio.wasAnyReleased() || (currentActivity && currentActivity->preventAutoSleep())) {
+  if (gpio.wasAnyPressed() || gpio.wasAnyReleased() || mappedInputManager.hadBleEvent() ||
+      (currentActivity && currentActivity->preventAutoSleep())) {
     lastActivityTime = millis();         // Reset inactivity timer
     powerManager.setPowerSaving(false);  // Restore normal CPU frequency on user activity
   }

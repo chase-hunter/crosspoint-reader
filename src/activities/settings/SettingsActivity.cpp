@@ -1,8 +1,10 @@
 #include "SettingsActivity.h"
 
+#include <BlePageTurner.h>
 #include <GfxRenderer.h>
 #include <Logging.h>
 
+#include "BluetoothActivity.h"
 #include "ButtonRemapActivity.h"
 #include "CalibreSettingsActivity.h"
 #include "ClearCacheActivity.h"
@@ -18,6 +20,9 @@
 
 const StrId SettingsActivity::categoryNames[categoryCount] = {StrId::STR_CAT_DISPLAY, StrId::STR_CAT_READER,
                                                               StrId::STR_CAT_CONTROLS, StrId::STR_CAT_SYSTEM};
+
+// BLE page turner instance defined in main.cpp
+extern BlePageTurner blePageTurner;
 
 void SettingsActivity::onEnter() {
   Activity::onEnter();
@@ -45,6 +50,7 @@ void SettingsActivity::onEnter() {
   // Append device-only ACTION items
   controlsSettings.insert(controlsSettings.begin(),
                           SettingInfo::Action(StrId::STR_REMAP_FRONT_BUTTONS, SettingAction::RemapFrontButtons));
+  controlsSettings.push_back(SettingInfo::Action(StrId::STR_BT_PAGE_TURNER, SettingAction::Bluetooth));
   systemSettings.push_back(SettingInfo::Action(StrId::STR_WIFI_NETWORKS, SettingAction::Network));
   systemSettings.push_back(SettingInfo::Action(StrId::STR_KOREADER_SYNC, SettingAction::KOReaderSync));
   systemSettings.push_back(SettingInfo::Action(StrId::STR_OPDS_BROWSER, SettingAction::OPDSBrowser));
@@ -198,6 +204,9 @@ void SettingsActivity::toggleCurrentSetting() {
         break;
       case SettingAction::Language:
         enterSubActivity(new LanguageSelectActivity(renderer, mappedInput, onComplete));
+        break;
+      case SettingAction::Bluetooth:
+        enterSubActivity(new BluetoothActivity(renderer, mappedInput, blePageTurner, onComplete));
         break;
       case SettingAction::None:
         // Do nothing
