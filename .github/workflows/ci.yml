@@ -2,7 +2,7 @@ name: CI (build)
 
 on:
   push:
-    branches: [master, sandbox]
+    branches: [master, sandbox, time]
   pull_request:
 
 permissions:

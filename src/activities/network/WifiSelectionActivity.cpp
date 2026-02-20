@@ -8,6 +8,7 @@
 #include <map>
 
 #include "MappedInputManager.h"
+#include "util/NtpSync.h"
 #include "WifiCredentialStore.h"
 #include "activities/util/KeyboardEntryActivity.h"
 #include "components/UITheme.h"
@@ -247,6 +248,9 @@ void WifiSelectionActivity::checkConnectionStatus() {
       RenderLock lock(*this);
       WIFI_STORE.setLastConnectedSsid(selectedSSID);
     }
+
+    // Sync system clock with NTP so time display is available
+    syncTimeWithNTP();
 
     // If we entered a new password, ask if user wants to save it
     // Otherwise, immediately complete so parent can start web server

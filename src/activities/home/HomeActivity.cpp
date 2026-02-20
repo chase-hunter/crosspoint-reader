@@ -9,6 +9,7 @@
 #include <Xtc.h>
 
 #include <cstring>
+#include <ctime>
 #include <vector>
 
 #include "Battery.h"
@@ -238,6 +239,30 @@ void HomeActivity::render(Activity::RenderLock&&) {
   const int homeY = brandingY + subtitleLineHeight + 6;
 
   renderer.drawCenteredText(SMALL_FONT_ID, brandingY, centeredBranding.c_str());
+
+  // Draw current time to the left of the branding text if time has been synced
+  {
+    time_t now = time(nullptr);
+    struct tm timeInfo;
+    if (localtime_r(&now, &timeInfo) && timeInfo.tm_year >= (2024 - 1900)) {
+      char hourStr[4];
+      char minStr[8];
+      strftime(hourStr, sizeof(hourStr), "%I", &timeInfo);
+      strftime(minStr, sizeof(minStr), "%M %p", &timeInfo);
+      // Remove leading zero from hour
+      const char* hour = (hourStr[0] == '0') ? hourStr + 1 : hourStr;
+
+      // Draw each part with explicit spacing to avoid colon overlap
+      constexpr int colonPad = 2;
+      int x = metrics.contentSidePadding;
+      renderer.drawText(SMALL_FONT_ID, x, brandingY, hour);
+      x += renderer.getTextWidth(SMALL_FONT_ID, hour);
+      renderer.drawText(SMALL_FONT_ID, x, brandingY, ":");
+      x += renderer.getTextWidth(SMALL_FONT_ID, ":") + colonPad;
+      renderer.drawText(SMALL_FONT_ID, x, brandingY, minStr);
+    }
+  }
+
   renderer.drawCenteredText(UI_12_FONT_ID, homeY, "Home", true, EpdFontFamily::BOLD);
 
   const int sectionX = metrics.contentSidePadding / 2;
