@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <vector>
 
 /**
  * BLE HID Host for page turner remotes.
@@ -24,6 +25,13 @@
 class BlePageTurner : public NimBLEClientCallbacks,
                       public NimBLEAdvertisedDeviceCallbacks {
  public:
+  /// Information about a discovered BLE HID device.
+  struct DiscoveredDevice {
+    std::string name;
+    std::string address;
+    int rssi = 0;
+  };
+
   // Virtual button events produced by the page turner
   enum class Event : uint8_t {
     None = 0,
@@ -35,11 +43,12 @@ class BlePageTurner : public NimBLEClientCallbacks,
 
   // Connection state
   enum class State : uint8_t {
-    Disabled = 0,  // BLE not initialised
-    Idle,          // Initialised, not scanning or connected
-    Scanning,      // Actively scanning for devices
-    Connecting,    // Connection attempt in progress
-    Connected,     // Page turner is connected and ready
+    Disabled = 0,   // BLE not initialised
+    Idle,           // Initialised, not scanning or connected
+    Scanning,       // Actively scanning for devices
+    ScanComplete,   // Scan finished, results available for selection
+    Connecting,     // Connection attempt in progress
+    Connected,      // Page turner is connected and ready
   };
 
   BlePageTurner() = default;
@@ -55,11 +64,17 @@ class BlePageTurner : public NimBLEClientCallbacks,
   /// Tear down BLE. Disconnects and deinitialises the stack.
   void end();
 
-  /// Start scanning for HID devices. Non-blocking.
+  /// Start scanning for HID devices. Non-blocking. Discovered devices are
+  /// collected in a list and can be retrieved after scanning completes.
   void startScan(uint32_t durationSeconds = 10);
 
-  /// Stop an in-progress scan.
+  /// Stop an in-progress scan. Transitions to ScanComplete so the user can
+  /// still see any devices found so far.
   void stopScan();
+
+  /// Connect to a previously discovered device by its index in the list.
+  /// Returns true if the connection was initiated (actual result comes via update()).
+  void connectToDeviceByIndex(size_t index);
 
   /// Disconnect any connected device.
   void disconnect();
@@ -82,6 +97,15 @@ class BlePageTurner : public NimBLEClientCallbacks,
   /// Whether a page turner is currently connected.
   bool isConnected() const { return state_.load(std::memory_order_relaxed) == State::Connected; }
 
+  /// Get the list of devices found during the last scan.
+  const std::vector<DiscoveredDevice>& getDiscoveredDevices() const { return discoveredDevices_; }
+
+  /// Clear the discovered device list.
+  void clearDiscoveredDevices() { discoveredDevices_.clear(); }
+
+  /// Dismiss the scan results and return to Idle.
+  void dismissScanResults();
+
  private:
   // NimBLEClientCallbacks
   void onConnect(NimBLEClient* client) override;
@@ -94,7 +118,7 @@ class BlePageTurner : public NimBLEClientCallbacks,
   static void onHidReport(NimBLERemoteCharacteristic* characteristic, uint8_t* data, size_t length, bool isNotify);
 
   // Internal helpers
-  bool connectToDevice(NimBLEAdvertisedDevice* device);
+  bool connectToAddress(const NimBLEAddress& address);
   bool subscribeToHidReports(NimBLEClient* client);
   Event translateKeycode(uint8_t keycode) const;
 
@@ -103,8 +127,10 @@ class BlePageTurner : public NimBLEClientCallbacks,
   std::atomic<Event> pendingEvent_{Event::None};
 
   NimBLEClient* client_ = nullptr;
-  NimBLEAdvertisedDevice* targetDevice_ = nullptr;
   std::string deviceName_;
-  bool scanComplete_ = false;
   bool connectionPending_ = false;
+  size_t pendingConnectionIndex_ = 0;
+
+  // Discovered devices from the most recent scan
+  std::vector<DiscoveredDevice> discoveredDevices_;
 };

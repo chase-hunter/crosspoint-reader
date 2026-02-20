@@ -332,8 +332,6 @@ void setup() {
   mappedInputManager.setBlePageTurner(&blePageTurner);
   if (SETTINGS.bluetoothEnabled) {
     blePageTurner.begin();
-    // Auto-reconnect: start a brief scan on boot to find a bonded device
-    blePageTurner.startScan(5);
   }
 
   switch (gpio.getWakeupReason()) {

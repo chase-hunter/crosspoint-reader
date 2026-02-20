@@ -74,9 +74,8 @@ void BlePageTurner::startScan(uint32_t durationSeconds) {
 
   LOG_DBG("BLE", "Starting BLE scan for %lu seconds", durationSeconds);
 
-  scanComplete_ = false;
   connectionPending_ = false;
-  targetDevice_ = nullptr;
+  discoveredDevices_.clear();
 
   auto* scan = NimBLEDevice::getScan();
   scan->setAdvertisedDeviceCallbacks(this, false);
@@ -96,8 +95,24 @@ void BlePageTurner::stopScan() {
 
   const auto currentState = state_.load();
   if (currentState == State::Scanning) {
+    state_.store(State::ScanComplete, std::memory_order_release);
+    LOG_DBG("BLE", "Scan stopped, %d device(s) found", static_cast<int>(discoveredDevices_.size()));
+  }
+}
+
+void BlePageTurner::dismissScanResults() {
+  if (state_.load() == State::ScanComplete) {
     state_.store(State::Idle, std::memory_order_release);
   }
+}
+
+void BlePageTurner::connectToDeviceByIndex(size_t index) {
+  if (index >= discoveredDevices_.size()) {
+    LOG_ERR("BLE", "Invalid device index: %d", static_cast<int>(index));
+    return;
+  }
+  connectionPending_ = true;
+  pendingConnectionIndex_ = index;
 }
 
 void BlePageTurner::disconnect() {
@@ -112,28 +127,31 @@ void BlePageTurner::disconnect() {
 }
 
 bool BlePageTurner::update() {
-  // Handle deferred connection after scan finds a device
-  if (connectionPending_ && targetDevice_) {
+  // Handle deferred connection request from the UI
+  if (connectionPending_) {
     connectionPending_ = false;
-    stopScan();
-    state_.store(State::Connecting, std::memory_order_release);
+    if (pendingConnectionIndex_ < discoveredDevices_.size()) {
+      const auto& dev = discoveredDevices_[pendingConnectionIndex_];
+      deviceName_ = dev.name;
+      state_.store(State::Connecting, std::memory_order_release);
 
-    if (connectToDevice(targetDevice_)) {
-      state_.store(State::Connected, std::memory_order_release);
-      LOG_INF("BLE", "Connected to page turner: %s", deviceName_.c_str());
-    } else {
-      state_.store(State::Idle, std::memory_order_release);
-      LOG_ERR("BLE", "Failed to connect to page turner");
+      if (connectToAddress(NimBLEAddress(dev.address))) {
+        state_.store(State::Connected, std::memory_order_release);
+        LOG_INF("BLE", "Connected to page turner: %s", deviceName_.c_str());
+      } else {
+        state_.store(State::ScanComplete, std::memory_order_release);
+        LOG_ERR("BLE", "Failed to connect to page turner");
+      }
     }
-    targetDevice_ = nullptr;
   }
 
-  // Check if scan finished without finding a device
+  // Check if scan finished naturally
   if (state_.load() == State::Scanning) {
     auto* scan = NimBLEDevice::getScan();
     if (!scan->isScanning()) {
-      state_.store(State::Idle, std::memory_order_release);
-      LOG_DBG("BLE", "Scan complete, no HID device found");
+      state_.store(State::ScanComplete, std::memory_order_release);
+      LOG_DBG("BLE", "Scan complete, %d device(s) found",
+              static_cast<int>(discoveredDevices_.size()));
     }
   }
 
@@ -158,14 +176,22 @@ void BlePageTurner::onResult(NimBLEAdvertisedDevice* device) {
 
   // Check if this device advertises the HID service
   if (device->isAdvertisingService(HID_SERVICE_UUID)) {
-    LOG_INF("BLE", "HID device found: %s (%s)", device->getName().c_str(), device->getAddress().toString().c_str());
-    deviceName_ = device->getName();
-    if (deviceName_.empty()) {
-      deviceName_ = device->getAddress().toString();
+    std::string name = device->getName();
+    std::string addr = device->getAddress().toString();
+    LOG_INF("BLE", "HID device found: %s (%s)", name.c_str(), addr.c_str());
+
+    if (name.empty()) {
+      name = addr;
     }
-    // We can't connect from within the scan callback, defer to update()
-    targetDevice_ = device;
-    connectionPending_ = true;
+
+    // Avoid duplicates (same address)
+    for (const auto& d : discoveredDevices_) {
+      if (d.address == addr) {
+        return;
+      }
+    }
+
+    discoveredDevices_.push_back({name, addr, device->getRSSI()});
   }
 }
 
@@ -178,15 +204,15 @@ void BlePageTurner::onDisconnect(NimBLEClient* client) {
   // State update handled in update()
 }
 
-bool BlePageTurner::connectToDevice(NimBLEAdvertisedDevice* device) {
-  LOG_DBG("BLE", "Connecting to %s", device->getAddress().toString().c_str());
+bool BlePageTurner::connectToAddress(const NimBLEAddress& address) {
+  LOG_DBG("BLE", "Connecting to %s", address.toString().c_str());
 
   client_ = NimBLEDevice::createClient();
   client_->setClientCallbacks(this, false);
   client_->setConnectionParams(12, 12, 0, 400);  // min/max interval, latency, timeout
   client_->setConnectTimeout(10);                 // 10 seconds
 
-  if (!client_->connect(device)) {
+  if (!client_->connect(address)) {
     LOG_ERR("BLE", "Connection failed");
     NimBLEDevice::deleteClient(client_);
     client_ = nullptr;

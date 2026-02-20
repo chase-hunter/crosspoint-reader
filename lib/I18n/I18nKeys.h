@@ -369,6 +369,9 @@ enum class StrId : uint16_t {
   STR_BT_SCAN_IN_PROGRESS,
   STR_BT_PRESS_TO_STOP,
   STR_BT_PRESS_TO_DISCONNECT,
+  STR_BT_NO_DEVICES,
+  STR_BT_PRESS_TO_RESCAN,
+  STR_BT_DEVICES_FOUND,
   // Sentinel - must be last
   _COUNT
 };

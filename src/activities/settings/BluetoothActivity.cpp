@@ -18,47 +18,37 @@ void BluetoothActivity::onEnter() {
     ble_.begin();
   }
 
+  selectedDeviceIndex_ = 0;
   requestUpdate();
 }
 
 void BluetoothActivity::loop() {
-  // Poll BLE state changes and re-render when state changes
+  const auto state = ble_.isEnabled() ? ble_.getState() : BlePageTurner::State::Disabled;
+
+  // Poll BLE state changes and re-render when state or device count changes
   if (ble_.isEnabled()) {
     ble_.update();
-    int currentState = static_cast<int>(ble_.getState());
-    if (currentState != lastRenderedState_) {
+    const int currentState = static_cast<int>(ble_.getState());
+    const int deviceCount = static_cast<int>(ble_.getDiscoveredDevices().size());
+    if (currentState != lastRenderedState_ || deviceCount != lastDeviceCount_) {
       requestUpdate();
     }
   }
 
+  // --- Back button (all states) ---
   if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
+    // If viewing scan results, dismiss them and go back to idle
+    if (state == BlePageTurner::State::ScanComplete) {
+      ble_.dismissScanResults();
+      requestUpdate();
+      return;
+    }
     SETTINGS.saveToFile();
     onComplete_();
     return;
   }
 
-  if (mappedInput.wasPressed(MappedInputManager::Button::Confirm)) {
-    if (!ble_.isEnabled()) {
-      // Enable and initialise BLE
-      SETTINGS.bluetoothEnabled = 1;
-      ble_.begin();
-      ble_.startScan(15);
-      SETTINGS.saveToFile();
-    } else if (ble_.isConnected()) {
-      // Disconnect
-      ble_.disconnect();
-    } else if (ble_.getState() == BlePageTurner::State::Idle) {
-      // Start scanning
-      ble_.startScan(15);
-    } else if (ble_.getState() == BlePageTurner::State::Scanning) {
-      // Stop scanning
-      ble_.stopScan();
-    }
-    requestUpdate();
-    return;
-  }
-
-  // Long press Back to disable BLE entirely
+  // --- Long press Back to disable BLE entirely ---
   if (ble_.isEnabled() && mappedInput.isPressed(MappedInputManager::Button::Back) &&
       mappedInput.getHeldTime() >= 1500) {
     ble_.end();
@@ -67,103 +57,209 @@ void BluetoothActivity::loop() {
     onComplete_();
     return;
   }
+
+  // --- State-specific input handling ---
+  if (state == BlePageTurner::State::Disabled) {
+    if (mappedInput.wasPressed(MappedInputManager::Button::Confirm)) {
+      SETTINGS.bluetoothEnabled = 1;
+      ble_.begin();
+      ble_.startScan(15);
+      SETTINGS.saveToFile();
+      requestUpdate();
+    }
+  } else if (state == BlePageTurner::State::Idle) {
+    if (mappedInput.wasPressed(MappedInputManager::Button::Confirm)) {
+      ble_.startScan(15);
+      selectedDeviceIndex_ = 0;
+      requestUpdate();
+    }
+  } else if (state == BlePageTurner::State::Scanning) {
+    if (mappedInput.wasPressed(MappedInputManager::Button::Confirm)) {
+      ble_.stopScan();
+      requestUpdate();
+    }
+  } else if (state == BlePageTurner::State::ScanComplete) {
+    const auto& devices = ble_.getDiscoveredDevices();
+    const int listSize = static_cast<int>(devices.size());
+
+    if (listSize > 0) {
+      // Confirm selects the highlighted device
+      if (mappedInput.wasPressed(MappedInputManager::Button::Confirm)) {
+        ble_.connectToDeviceByIndex(static_cast<size_t>(selectedDeviceIndex_));
+        requestUpdate();
+        return;
+      }
+
+      // Navigate the device list with Up/Down
+      buttonNavigator_.onNext([this, listSize] {
+        selectedDeviceIndex_ = ButtonNavigator::nextIndex(selectedDeviceIndex_, listSize);
+        requestUpdate();
+      });
+      buttonNavigator_.onPrevious([this, listSize] {
+        selectedDeviceIndex_ = ButtonNavigator::previousIndex(selectedDeviceIndex_, listSize);
+        requestUpdate();
+      });
+
+      // Right button rescans
+      if (mappedInput.wasPressed(MappedInputManager::Button::Right)) {
+        ble_.startScan(15);
+        selectedDeviceIndex_ = 0;
+        requestUpdate();
+      }
+    } else {
+      // No devices found - Confirm rescans
+      if (mappedInput.wasPressed(MappedInputManager::Button::Confirm)) {
+        ble_.startScan(15);
+        selectedDeviceIndex_ = 0;
+        requestUpdate();
+      }
+    }
+  } else if (state == BlePageTurner::State::Connected) {
+    if (mappedInput.wasPressed(MappedInputManager::Button::Confirm)) {
+      ble_.disconnect();
+      requestUpdate();
+    }
+  }
 }
 
 void BluetoothActivity::render(RenderLock&&) {
   renderer.clearScreen();
 
-  const auto pageWidth = renderer.getScreenWidth();
-  const auto pageHeight = renderer.getScreenHeight();
+  const auto state = ble_.isEnabled() ? ble_.getState() : BlePageTurner::State::Disabled;
+
   auto metrics = UITheme::getInstance().getMetrics();
+  const auto pageWidth = renderer.getScreenWidth();
 
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.headerHeight}, tr(STR_BT_PAGE_TURNER), "");
 
-  const int contentY = metrics.topPadding + metrics.headerHeight + 20;
-  const int lineHeight = 28;
-  const int leftMargin = 20;
-  int y = contentY;
-
-  // Status section
-  const char* statusText = "";
-  const auto state = ble_.isEnabled() ? ble_.getState() : BlePageTurner::State::Disabled;
-
   switch (state) {
     case BlePageTurner::State::Disabled:
-      statusText = tr(STR_BT_DISABLED);
-      break;
-    case BlePageTurner::State::Idle:
-      statusText = tr(STR_BT_IDLE);
+      renderDisabled();
       break;
     case BlePageTurner::State::Scanning:
-      statusText = tr(STR_BT_SCANNING);
+      renderScanning();
+      break;
+    case BlePageTurner::State::ScanComplete:
+      renderDeviceList();
       break;
     case BlePageTurner::State::Connecting:
-      statusText = tr(STR_BT_CONNECTING);
+      renderConnecting();
       break;
     case BlePageTurner::State::Connected:
-      statusText = tr(STR_BT_CONNECTED);
-      break;
-  }
-
-  // Draw status label
-  std::string statusLine = std::string(tr(STR_BT_STATUS)) + statusText;
-  renderer.drawText(UI_12_FONT_ID, leftMargin, y, statusLine.c_str());
-  y += lineHeight;
-
-  // Draw device name if connected or was connected
-  if (state == BlePageTurner::State::Connected || !ble_.getDeviceName().empty()) {
-    std::string deviceLine = std::string(tr(STR_BT_DEVICE)) + ble_.getDeviceName();
-    renderer.drawText(UI_12_FONT_ID, leftMargin, y, deviceLine.c_str());
-    y += lineHeight;
-  }
-
-  y += lineHeight;
-
-  // Instructions
-  if (state == BlePageTurner::State::Disabled) {
-    renderer.drawText(UI_10_FONT_ID, leftMargin, y, tr(STR_BT_PRESS_TO_ENABLE));
-    y += lineHeight;
-    renderer.drawText(UI_10_FONT_ID, leftMargin, y, tr(STR_BT_INSTRUCTION));
-  } else if (state == BlePageTurner::State::Idle) {
-    renderer.drawText(UI_10_FONT_ID, leftMargin, y, tr(STR_BT_PRESS_TO_SCAN));
-    y += lineHeight;
-    renderer.drawText(UI_10_FONT_ID, leftMargin, y, tr(STR_BT_HOLD_TO_DISABLE));
-  } else if (state == BlePageTurner::State::Scanning) {
-    renderer.drawText(UI_10_FONT_ID, leftMargin, y, tr(STR_BT_SCAN_IN_PROGRESS));
-    y += lineHeight;
-    renderer.drawText(UI_10_FONT_ID, leftMargin, y, tr(STR_BT_PRESS_TO_STOP));
-  } else if (state == BlePageTurner::State::Connected) {
-    renderer.drawText(UI_10_FONT_ID, leftMargin, y, tr(STR_BT_PRESS_TO_DISCONNECT));
-    y += lineHeight;
-    renderer.drawText(UI_10_FONT_ID, leftMargin, y, tr(STR_BT_HOLD_TO_DISABLE));
-  } else if (state == BlePageTurner::State::Connecting) {
-    renderer.drawText(UI_10_FONT_ID, leftMargin, y, tr(STR_BT_CONNECTING));
-  }
-
-  // Draw button hints
-  const char* confirmLabel = "";
-  switch (state) {
-    case BlePageTurner::State::Disabled:
-      confirmLabel = tr(STR_BT_ENABLE);
+      renderConnected();
       break;
     case BlePageTurner::State::Idle:
-      confirmLabel = tr(STR_BT_SCAN);
-      break;
-    case BlePageTurner::State::Scanning:
-      confirmLabel = tr(STR_CANCEL);
-      break;
-    case BlePageTurner::State::Connected:
-      confirmLabel = tr(STR_BT_DISCONNECT);
-      break;
-    case BlePageTurner::State::Connecting:
-      confirmLabel = "";
+      renderDisabled();  // Same layout — prompts user to scan
       break;
   }
-
-  const auto labels = mappedInput.mapLabels(tr(STR_BACK), confirmLabel, "", "");
-  GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 
   lastRenderedState_ = static_cast<int>(state);
+  lastDeviceCount_ = static_cast<int>(ble_.getDiscoveredDevices().size());
 
   renderer.displayBuffer();
+}
+
+void BluetoothActivity::renderDisabled() const {
+  const auto pageHeight = renderer.getScreenHeight();
+  const auto lineHeight = renderer.getLineHeight(UI_10_FONT_ID);
+  const auto top = (pageHeight - lineHeight * 3) / 2;
+
+  if (!ble_.isEnabled()) {
+    renderer.drawCenteredText(UI_12_FONT_ID, top, tr(STR_BT_DISABLED), true, EpdFontFamily::BOLD);
+    renderer.drawCenteredText(UI_10_FONT_ID, top + lineHeight + 15, tr(STR_BT_PRESS_TO_ENABLE));
+    renderer.drawCenteredText(UI_10_FONT_ID, top + lineHeight * 2 + 25, tr(STR_BT_INSTRUCTION));
+
+    const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_BT_ENABLE), "", "");
+    GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+  } else {
+    // Idle state — BLE is on but not scanning
+    renderer.drawCenteredText(UI_12_FONT_ID, top, tr(STR_BT_IDLE), true, EpdFontFamily::BOLD);
+    renderer.drawCenteredText(UI_10_FONT_ID, top + lineHeight + 15, tr(STR_BT_PRESS_TO_SCAN));
+    renderer.drawCenteredText(UI_10_FONT_ID, top + lineHeight * 2 + 25, tr(STR_BT_HOLD_TO_DISABLE));
+
+    const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_BT_SCAN), "", "");
+    GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+  }
+}
+
+void BluetoothActivity::renderScanning() const {
+  const auto pageHeight = renderer.getScreenHeight();
+  const auto lineHeight = renderer.getLineHeight(UI_10_FONT_ID);
+  const auto top = (pageHeight - lineHeight * 2) / 2;
+
+  renderer.drawCenteredText(UI_12_FONT_ID, top, tr(STR_BT_SCAN_IN_PROGRESS), true, EpdFontFamily::BOLD);
+
+  const int deviceCount = static_cast<int>(ble_.getDiscoveredDevices().size());
+  char countBuf[32];
+  snprintf(countBuf, sizeof(countBuf), "%s%d", tr(STR_BT_DEVICES_FOUND), deviceCount);
+  renderer.drawCenteredText(UI_10_FONT_ID, top + lineHeight + 15, countBuf);
+
+  const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_CANCEL), "", "");
+  GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+}
+
+void BluetoothActivity::renderDeviceList() const {
+  const auto& devices = ble_.getDiscoveredDevices();
+  auto metrics = UITheme::getInstance().getMetrics();
+  const auto pageWidth = renderer.getScreenWidth();
+  const auto pageHeight = renderer.getScreenHeight();
+
+  if (devices.empty()) {
+    // No devices found
+    const auto lineHeight = renderer.getLineHeight(UI_10_FONT_ID);
+    const auto top = (pageHeight - lineHeight * 2) / 2;
+    renderer.drawCenteredText(UI_12_FONT_ID, top, tr(STR_BT_NO_DEVICES), true, EpdFontFamily::BOLD);
+    renderer.drawCenteredText(UI_10_FONT_ID, top + lineHeight + 15, tr(STR_BT_PRESS_TO_RESCAN));
+
+    const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_RETRY), "", "");
+    GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+    return;
+  }
+
+  // Draw scrollable device list using the theme's drawList
+  const int contentTop = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
+  const int contentHeight = pageHeight - contentTop - metrics.buttonHintsHeight - metrics.verticalSpacing * 2;
+
+  GUI.drawList(
+      renderer, Rect{0, contentTop, pageWidth, contentHeight}, static_cast<int>(devices.size()),
+      selectedDeviceIndex_,
+      [&devices](int index) -> std::string { return devices[index].name; },  // rowTitle
+      nullptr,                                                                // rowSubtitle
+      nullptr,                                                                // rowIcon
+      [&devices](int index) -> std::string {                                  // rowValue (RSSI)
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%d dBm", devices[index].rssi);
+        return buf;
+      });
+
+  const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
+  GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+}
+
+void BluetoothActivity::renderConnecting() const {
+  const auto pageHeight = renderer.getScreenHeight();
+  const auto lineHeight = renderer.getLineHeight(UI_10_FONT_ID);
+  const auto top = (pageHeight - lineHeight * 2) / 2;
+
+  renderer.drawCenteredText(UI_12_FONT_ID, top, tr(STR_BT_CONNECTING), true, EpdFontFamily::BOLD);
+
+  if (!ble_.getDeviceName().empty()) {
+    renderer.drawCenteredText(UI_10_FONT_ID, top + lineHeight + 15, ble_.getDeviceName().c_str());
+  }
+}
+
+void BluetoothActivity::renderConnected() const {
+  const auto pageHeight = renderer.getScreenHeight();
+  const auto lineHeight = renderer.getLineHeight(UI_10_FONT_ID);
+  const auto top = (pageHeight - lineHeight * 3) / 2;
+
+  renderer.drawCenteredText(UI_12_FONT_ID, top, tr(STR_BT_CONNECTED), true, EpdFontFamily::BOLD);
+
+  std::string deviceLine = std::string(tr(STR_BT_DEVICE)) + ble_.getDeviceName();
+  renderer.drawCenteredText(UI_10_FONT_ID, top + lineHeight + 15, deviceLine.c_str());
+
+  renderer.drawCenteredText(UI_10_FONT_ID, top + lineHeight * 2 + 25, tr(STR_BT_HOLD_TO_DISABLE));
+
+  const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_BT_DISCONNECT), "", "");
+  GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
