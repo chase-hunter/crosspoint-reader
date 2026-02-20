@@ -118,6 +118,7 @@ class BlePageTurner : public NimBLEClientCallbacks,
   void onDisconnect(NimBLEClient* client) override;
   uint32_t onPassKeyRequest() override;
   bool onConfirmPIN(uint32_t pin) override;
+  void onAuthenticationComplete(ble_gap_conn_desc* desc) override;
 
   // NimBLEAdvertisedDeviceCallbacks
   void onResult(NimBLEAdvertisedDevice* device) override;

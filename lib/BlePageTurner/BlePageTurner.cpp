@@ -113,7 +113,16 @@ void BlePageTurner::connectToDeviceByIndex(size_t index) {
   }
   pendingConnectionIndex_ = index;
   deviceName_ = discoveredDevices_[index].name;
-  displayPasskey_.store(0, std::memory_order_release);
+
+  // Pre-generate a random 6-digit passkey and register it with the NimBLE stack.
+  // In NimBLE-Arduino 1.4.x the DISP action uses NimBLEDevice::getSecurityPasskey()
+  // rather than the onPassKeyRequest() callback, so the passkey must be set here
+  // for ZMK keyboards with CONFIG_ZMK_BLE_PASSKEY_ENTRY=y.
+  uint32_t passkey = esp_random() % 1000000;
+  displayPasskey_.store(passkey, std::memory_order_release);
+  NimBLEDevice::setSecurityPasskey(passkey);
+  LOG_INF("BLE", "Pre-generated passkey for pairing: %06lu", static_cast<unsigned long>(passkey));
+
   connectionPending_ = true;
   state_.store(State::Connecting, std::memory_order_release);
 }
@@ -206,11 +215,15 @@ void BlePageTurner::onDisconnect(NimBLEClient* client) {
 }
 
 uint32_t BlePageTurner::onPassKeyRequest() {
-  // Generate a random 6-digit passkey and display it on the e-reader screen.
-  // The user must type this passkey on the Bluetooth keyboard to complete pairing.
-  uint32_t passkey = esp_random() % 1000000;
-  displayPasskey_.store(passkey, std::memory_order_release);
-  LOG_INF("BLE", "Passkey generated for display: %06lu", static_cast<unsigned long>(passkey));
+  // Fallback: if the stack calls this callback (BLE_SM_IOACT_INPUT), return the
+  // pre-generated passkey.  If none was set yet, generate one now.
+  uint32_t passkey = displayPasskey_.load(std::memory_order_acquire);
+  if (passkey == 0) {
+    passkey = esp_random() % 1000000;
+    displayPasskey_.store(passkey, std::memory_order_release);
+    NimBLEDevice::setSecurityPasskey(passkey);
+  }
+  LOG_INF("BLE", "onPassKeyRequest -> %06lu", static_cast<unsigned long>(passkey));
 
   // Notify the UI to refresh so the passkey is shown while connect() blocks
   if (renderCallback_) {
@@ -223,6 +236,20 @@ uint32_t BlePageTurner::onPassKeyRequest() {
 bool BlePageTurner::onConfirmPIN(uint32_t pin) {
   LOG_INF("BLE", "Numeric comparison PIN: %06lu - auto confirming", static_cast<unsigned long>(pin));
   return true;
+}
+
+void BlePageTurner::onAuthenticationComplete(ble_gap_conn_desc* desc) {
+  if (desc->sec_state.encrypted) {
+    LOG_INF("BLE", "Authentication complete - encrypted (bonded=%d, authenticated=%d)",
+            desc->sec_state.bonded, desc->sec_state.authenticated);
+  } else {
+    LOG_ERR("BLE", "Authentication failed - connection is NOT encrypted");
+  }
+  // Clear the displayed passkey now that pairing is resolved
+  displayPasskey_.store(0, std::memory_order_release);
+  if (renderCallback_) {
+    renderCallback_();
+  }
 }
 
 bool BlePageTurner::connectToAddress(const NimBLEAddress& address) {
