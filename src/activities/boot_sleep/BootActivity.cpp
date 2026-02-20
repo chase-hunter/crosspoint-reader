@@ -7,41 +7,30 @@
 #include "fontIds.h"
 
 namespace {
-void drawChMonogram(const GfxRenderer& renderer, int x, int y, int size) {
-  const int frame = size;
-  const int outerStroke = 2;
-  const int frameInset = 14;
-  const int glyphX = x + frameInset;
-  const int glyphY = y + frameInset;
-  const int glyphW = frame - frameInset * 2;
-  const int glyphH = frame - frameInset * 2;
-  const int stroke = 7;
+void drawCrossPointLogo(const GfxRenderer& renderer, int x, int y, int size) {
+  const int center = size / 2;
 
-  // Outer and inner frame for a tech-style emblem
-  renderer.drawRect(x, y, frame, frame);
-  renderer.drawRect(x + outerStroke + 3, y + outerStroke + 3, frame - (outerStroke + 3) * 2,
-                    frame - (outerStroke + 3) * 2);
+  // Outer frame – clean double border with rounded corners
+  renderer.drawRoundedRect(x, y, size, size, 2, 6, true);
+  renderer.drawRoundedRect(x + 5, y + 5, size - 10, size - 10, 1, 4, true);
 
-  // Corner accents
-  renderer.fillRect(x + 5, y + 5, 10, 3);
-  renderer.fillRect(x + frame - 15, y + frame - 8, 10, 3);
+  // Cross bars with gap at center (crosshair / reticle style)
+  const int barW = 5;
+  const int barInset = 22;
+  const int gapR = 12;
 
-  // Stylized "C"
-  const int cW = glyphW / 2 - 2;
-  renderer.fillRect(glyphX, glyphY, stroke, glyphH);
-  renderer.fillRect(glyphX, glyphY, cW, stroke);
-  renderer.fillRect(glyphX, glyphY + glyphH - stroke, cW, stroke);
+  // Vertical bar – top half
+  renderer.fillRect(x + center - barW / 2, y + barInset, barW, center - barInset - gapR);
+  // Vertical bar – bottom half
+  renderer.fillRect(x + center - barW / 2, y + center + gapR, barW, center - barInset - gapR);
+  // Horizontal bar – left half
+  renderer.fillRect(x + barInset, y + center - barW / 2, center - barInset - gapR, barW);
+  // Horizontal bar – right half
+  renderer.fillRect(x + center + gapR, y + center - barW / 2, center - barInset - gapR, barW);
 
-  // Stylized "H" with stronger center bridge
-  const int hX = glyphX + glyphW / 2 + 4;
-  const int hW = glyphW / 2 - 4;
-  renderer.fillRect(hX, glyphY, stroke, glyphH);
-  renderer.fillRect(hX + hW - stroke, glyphY, stroke, glyphH);
-  renderer.fillRect(hX, glyphY + glyphH / 2 - stroke / 2, hW, stroke + 1);
-
-  // Diagonal cut accent for a flashier mark
-  renderer.drawLine(glyphX + 4, glyphY + glyphH - 10, hX + hW - 2, glyphY + 8);
-  renderer.drawLine(glyphX + 6, glyphY + glyphH - 8, hX + hW, glyphY + 10);
+  // Center point – filled square at the intersection
+  const int ptSize = 11;
+  renderer.fillRect(x + center - ptSize / 2, y + center - ptSize / 2, ptSize, ptSize);
 }
 }  // namespace
 
@@ -55,7 +44,7 @@ void BootActivity::onEnter() {
   const int logoY = (pageHeight - logoSize) / 2;
 
   renderer.clearScreen();
-  drawChMonogram(renderer, logoX, logoY, logoSize);
+  drawCrossPointLogo(renderer, logoX, logoY, logoSize);
 
   const std::string titleLine1 = "CrossPoint Reworked";
   const std::string titleLine2 = "github.com/chase-hunter";
