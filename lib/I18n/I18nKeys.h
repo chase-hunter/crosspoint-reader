@@ -373,7 +373,6 @@ enum class StrId : uint16_t {
   STR_BT_PRESS_TO_RESCAN,
   STR_BT_DEVICES_FOUND,
   STR_BT_ENTER_PIN,
-  STR_BT_SKIP_PIN,
   // Sentinel - must be last
   _COUNT
 };

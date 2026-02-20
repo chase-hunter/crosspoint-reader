@@ -46,7 +46,7 @@ void BlePageTurner::begin() {
 
   // Enable bonding/encryption for HID devices
   NimBLEDevice::setSecurityAuth(true, true, true);  // bonding, MITM, SC
-  NimBLEDevice::setSecurityIOCap(BLE_HS_IO_KEYBOARD_DISPLAY);
+  NimBLEDevice::setSecurityIOCap(BLE_HS_IO_DISPLAY_ONLY);
 
   state_.store(State::Idle, std::memory_order_release);
   LOG_DBG("BLE", "NimBLE stack initialized");
@@ -113,22 +113,9 @@ void BlePageTurner::connectToDeviceByIndex(size_t index) {
   }
   pendingConnectionIndex_ = index;
   deviceName_ = discoveredDevices_[index].name;
-  state_.store(State::PinEntry, std::memory_order_release);
-}
-
-void BlePageTurner::connectPendingDevice() {
+  displayPasskey_.store(0, std::memory_order_release);
   connectionPending_ = true;
   state_.store(State::Connecting, std::memory_order_release);
-}
-
-void BlePageTurner::setSecurityPasskey(uint32_t passkey) {
-  NimBLEDevice::setSecurityPasskey(passkey);
-}
-
-void BlePageTurner::dismissPinEntry() {
-  if (state_.load() == State::PinEntry) {
-    state_.store(State::ScanComplete, std::memory_order_release);
-  }
 }
 
 void BlePageTurner::disconnect() {
@@ -219,8 +206,17 @@ void BlePageTurner::onDisconnect(NimBLEClient* client) {
 }
 
 uint32_t BlePageTurner::onPassKeyRequest() {
-  uint32_t passkey = NimBLEDevice::getSecurityPasskey();
-  LOG_INF("BLE", "Passkey requested, returning: %lu", static_cast<unsigned long>(passkey));
+  // Generate a random 6-digit passkey and display it on the e-reader screen.
+  // The user must type this passkey on the Bluetooth keyboard to complete pairing.
+  uint32_t passkey = esp_random() % 1000000;
+  displayPasskey_.store(passkey, std::memory_order_release);
+  LOG_INF("BLE", "Passkey generated for display: %06lu", static_cast<unsigned long>(passkey));
+
+  // Notify the UI to refresh so the passkey is shown while connect() blocks
+  if (renderCallback_) {
+    renderCallback_();
+  }
+
   return passkey;
 }
 

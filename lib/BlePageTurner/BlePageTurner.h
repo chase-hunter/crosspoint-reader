@@ -47,7 +47,6 @@ class BlePageTurner : public NimBLEClientCallbacks,
     Idle,           // Initialised, not scanning or connected
     Scanning,       // Actively scanning for devices
     ScanComplete,   // Scan finished, results available for selection
-    PinEntry,       // Device selected, waiting for optional PIN input
     Connecting,     // Connection attempt in progress
     Connected,      // Page turner is connected and ready
   };
@@ -73,14 +72,8 @@ class BlePageTurner : public NimBLEClientCallbacks,
   /// still see any devices found so far.
   void stopScan();
 
-  /// Select a device for connection by its index. Transitions to PinEntry state.
+  /// Select a device and begin connecting by its index in the discovered list.
   void connectToDeviceByIndex(size_t index);
-
-  /// Start connecting the previously selected device (call after PIN entry).
-  void connectPendingDevice();
-
-  /// Set the security passkey for PIN-based pairing.
-  static void setSecurityPasskey(uint32_t passkey);
 
   /// Disconnect any connected device.
   void disconnect();
@@ -103,6 +96,13 @@ class BlePageTurner : public NimBLEClientCallbacks,
   /// Whether a page turner is currently connected.
   bool isConnected() const { return state_.load(std::memory_order_relaxed) == State::Connected; }
 
+  /// Get the pairing passkey displayed during connection (0 if none).
+  uint32_t getDisplayPasskey() const { return displayPasskey_.load(std::memory_order_relaxed); }
+
+  /// Set a callback to be invoked when a screen refresh is needed
+  /// (e.g. when a passkey is generated during the blocking connect call).
+  void setRenderCallback(std::function<void()> cb) { renderCallback_ = std::move(cb); }
+
   /// Get the list of devices found during the last scan.
   const std::vector<DiscoveredDevice>& getDiscoveredDevices() const { return discoveredDevices_; }
 
@@ -111,9 +111,6 @@ class BlePageTurner : public NimBLEClientCallbacks,
 
   /// Dismiss the scan results and return to Idle.
   void dismissScanResults();
-
-  /// Dismiss PIN entry and return to scan results.
-  void dismissPinEntry();
 
  private:
   // NimBLEClientCallbacks
@@ -136,6 +133,7 @@ class BlePageTurner : public NimBLEClientCallbacks,
   // State
   std::atomic<State> state_{State::Disabled};
   std::atomic<Event> pendingEvent_{Event::None};
+  std::atomic<uint32_t> displayPasskey_{0};
 
   NimBLEClient* client_ = nullptr;
   std::string deviceName_;
@@ -144,4 +142,7 @@ class BlePageTurner : public NimBLEClientCallbacks,
 
   // Discovered devices from the most recent scan
   std::vector<DiscoveredDevice> discoveredDevices_;
+
+  // Optional callback for requesting a screen refresh
+  std::function<void()> renderCallback_;
 };
