@@ -57,7 +57,7 @@ void EpubReaderPercentSelectionActivity::loop() {
 }
 
 void EpubReaderPercentSelectionActivity::render(Activity::RenderLock&&) {
-  renderer.clearScreen();
+  renderer.clearScreen(UITheme::getClearColor());
 
   // Title and numeric percent value.
   renderer.drawCenteredText(UI_12_FONT_ID, 15, tr(STR_GO_TO_PERCENT), true, EpdFontFamily::BOLD);

@@ -222,7 +222,7 @@ void HomeActivity::render(Activity::RenderLock&&) {
   const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();
 
-  renderer.clearScreen();
+  renderer.clearScreen(UITheme::getClearColor());
   bool bufferRestored = coverBufferStored && restoreCoverBuffer();
 
   const int headerY = metrics.topPadding;

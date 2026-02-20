@@ -10,6 +10,7 @@
 #include "components/themes/BaseTheme.h"
 #include "components/themes/lyra/Lyra3CoversTheme.h"
 #include "components/themes/lyra/LyraTheme.h"
+#include "components/themes/lyra_reloaded/LyraReloadedTheme.h"
 #include "util/StringUtils.h"
 
 namespace {
@@ -44,6 +45,11 @@ void UITheme::setTheme(CrossPointSettings::UI_THEME type) {
       LOG_DBG("UI", "Using Lyra 3 Covers theme");
       currentTheme = std::make_unique<Lyra3CoversTheme>();
       currentMetrics = &Lyra3CoversMetrics::values;
+      break;
+    case CrossPointSettings::UI_THEME::LYRA_RELOADED:
+      LOG_DBG("UI", "Using Lyra Reloaded theme");
+      currentTheme = std::make_unique<LyraReloadedTheme>();
+      currentMetrics = &LyraReloadedMetrics::values;
       break;
   }
 }
@@ -89,4 +95,12 @@ UIIcon UITheme::getFileIcon(std::string filename) {
     return Image;
   }
   return File;
+}
+
+uint8_t UITheme::getClearColor() {
+  auto themeType = static_cast<CrossPointSettings::UI_THEME>(SETTINGS.uiTheme);
+  if (themeType == CrossPointSettings::UI_THEME::LYRA_RELOADED && SETTINGS.darkMode) {
+    return 0x00;  // Black for dark mode
+  }
+  return 0xFF;  // White (default)
 }

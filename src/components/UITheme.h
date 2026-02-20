@@ -22,6 +22,9 @@ class UITheme {
                                      bool hasSubtitle);
   static std::string getCoverThumbPath(std::string coverBmpPath, int coverHeight);
   static UIIcon getFileIcon(std::string filename);
+  // Returns the clear-screen color byte appropriate for the current theme.
+  // Normal themes → 0xFF (white); Lyra Reloaded with dark mode → 0x00 (black).
+  static uint8_t getClearColor();
 
  private:
   const ThemeMetrics* currentMetrics;

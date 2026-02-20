@@ -137,7 +137,7 @@ void OpdsBookBrowserActivity::loop() {
 }
 
 void OpdsBookBrowserActivity::render(Activity::RenderLock&&) {
-  renderer.clearScreen();
+  renderer.clearScreen(UITheme::getClearColor());
 
   const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();

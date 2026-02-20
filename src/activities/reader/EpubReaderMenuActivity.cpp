@@ -57,7 +57,7 @@ void EpubReaderMenuActivity::loop() {
 }
 
 void EpubReaderMenuActivity::render(Activity::RenderLock&&) {
-  renderer.clearScreen();
+  renderer.clearScreen(UITheme::getClearColor());
   const auto pageWidth = renderer.getScreenWidth();
   const auto orientation = renderer.getOrientation();
   // Landscape orientation: button hints are drawn along a vertical edge, so we

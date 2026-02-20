@@ -85,7 +85,7 @@ void EpubReaderChapterSelectionActivity::loop() {
 }
 
 void EpubReaderChapterSelectionActivity::render(Activity::RenderLock&&) {
-  renderer.clearScreen();
+  renderer.clearScreen(UITheme::getClearColor());
 
   const auto pageWidth = renderer.getScreenWidth();
   const auto orientation = renderer.getOrientation();
