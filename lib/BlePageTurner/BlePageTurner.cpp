@@ -46,7 +46,7 @@ void BlePageTurner::begin() {
 
   // Enable bonding/encryption for HID devices
   NimBLEDevice::setSecurityAuth(true, true, true);  // bonding, MITM, SC
-  NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
+  NimBLEDevice::setSecurityIOCap(BLE_HS_IO_KEYBOARD_DISPLAY);
 
   state_.store(State::Idle, std::memory_order_release);
   LOG_DBG("BLE", "NimBLE stack initialized");
@@ -111,8 +111,24 @@ void BlePageTurner::connectToDeviceByIndex(size_t index) {
     LOG_ERR("BLE", "Invalid device index: %d", static_cast<int>(index));
     return;
   }
-  connectionPending_ = true;
   pendingConnectionIndex_ = index;
+  deviceName_ = discoveredDevices_[index].name;
+  state_.store(State::PinEntry, std::memory_order_release);
+}
+
+void BlePageTurner::connectPendingDevice() {
+  connectionPending_ = true;
+  state_.store(State::Connecting, std::memory_order_release);
+}
+
+void BlePageTurner::setSecurityPasskey(uint32_t passkey) {
+  NimBLEDevice::setSecurityPasskey(passkey);
+}
+
+void BlePageTurner::dismissPinEntry() {
+  if (state_.load() == State::PinEntry) {
+    state_.store(State::ScanComplete, std::memory_order_release);
+  }
 }
 
 void BlePageTurner::disconnect() {
@@ -132,8 +148,6 @@ bool BlePageTurner::update() {
     connectionPending_ = false;
     if (pendingConnectionIndex_ < discoveredDevices_.size()) {
       const auto& dev = discoveredDevices_[pendingConnectionIndex_];
-      deviceName_ = dev.name;
-      state_.store(State::Connecting, std::memory_order_release);
 
       if (connectToAddress(NimBLEAddress(dev.address))) {
         state_.store(State::Connected, std::memory_order_release);
@@ -202,6 +216,17 @@ void BlePageTurner::onConnect(NimBLEClient* client) {
 void BlePageTurner::onDisconnect(NimBLEClient* client) {
   LOG_INF("BLE", "Client disconnected callback");
   // State update handled in update()
+}
+
+uint32_t BlePageTurner::onPassKeyRequest() {
+  uint32_t passkey = NimBLEDevice::getSecurityPasskey();
+  LOG_INF("BLE", "Passkey requested, returning: %lu", static_cast<unsigned long>(passkey));
+  return passkey;
+}
+
+bool BlePageTurner::onConfirmPIN(uint32_t pin) {
+  LOG_INF("BLE", "Numeric comparison PIN: %06lu - auto confirming", static_cast<unsigned long>(pin));
+  return true;
 }
 
 bool BlePageTurner::connectToAddress(const NimBLEAddress& address) {

@@ -32,6 +32,7 @@ class BluetoothActivity final : public Activity {
   void renderDisabled() const;
   void renderScanning() const;
   void renderDeviceList() const;
+  void renderPinEntry() const;
   void renderConnecting() const;
   void renderConnected() const;
 
@@ -40,5 +41,7 @@ class BluetoothActivity final : public Activity {
   int lastRenderedState_ = -1;
   int lastDeviceCount_ = -1;
   int selectedDeviceIndex_ = 0;
+  int pinDigits_[6] = {};
+  int pinCursorPos_ = 0;
   ButtonNavigator buttonNavigator_;
 };

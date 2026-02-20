@@ -47,6 +47,7 @@ class BlePageTurner : public NimBLEClientCallbacks,
     Idle,           // Initialised, not scanning or connected
     Scanning,       // Actively scanning for devices
     ScanComplete,   // Scan finished, results available for selection
+    PinEntry,       // Device selected, waiting for optional PIN input
     Connecting,     // Connection attempt in progress
     Connected,      // Page turner is connected and ready
   };
@@ -72,9 +73,14 @@ class BlePageTurner : public NimBLEClientCallbacks,
   /// still see any devices found so far.
   void stopScan();
 
-  /// Connect to a previously discovered device by its index in the list.
-  /// Returns true if the connection was initiated (actual result comes via update()).
+  /// Select a device for connection by its index. Transitions to PinEntry state.
   void connectToDeviceByIndex(size_t index);
+
+  /// Start connecting the previously selected device (call after PIN entry).
+  void connectPendingDevice();
+
+  /// Set the security passkey for PIN-based pairing.
+  static void setSecurityPasskey(uint32_t passkey);
 
   /// Disconnect any connected device.
   void disconnect();
@@ -106,10 +112,15 @@ class BlePageTurner : public NimBLEClientCallbacks,
   /// Dismiss the scan results and return to Idle.
   void dismissScanResults();
 
+  /// Dismiss PIN entry and return to scan results.
+  void dismissPinEntry();
+
  private:
   // NimBLEClientCallbacks
   void onConnect(NimBLEClient* client) override;
   void onDisconnect(NimBLEClient* client) override;
+  uint32_t onPassKeyRequest() override;
+  bool onConfirmPIN(uint32_t pin) override;
 
   // NimBLEAdvertisedDeviceCallbacks
   void onResult(NimBLEAdvertisedDevice* device) override;
